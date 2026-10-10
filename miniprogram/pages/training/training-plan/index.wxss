@@ -1,0 +1,319 @@
+.training-hero {
+  padding: 34rpx;
+  background: linear-gradient(145deg, #f3dfd3, #f0cec3);
+}
+
+.training-hero__eyebrow {
+  color: #ae8173;
+  font-size: 24rpx;
+}
+
+.training-hero__title {
+  margin-top: 18rpx;
+  font-size: 44rpx;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.training-hero__subtitle {
+  margin-top: 10rpx;
+  color: #8f756d;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.training-hero__audience {
+  margin-top: 12rpx;
+  color: #8f756d;
+  font-size: 24rpx;
+}
+
+.training-hero__ability {
+  margin-top: 16rpx;
+}
+
+.ability-badge {
+  display: inline-block;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  background: #f0e7e1;
+  color: #9d6f4c;
+  font-size: 23rpx;
+  font-weight: 600;
+}
+
+.training-hero__hook {
+  margin-top: 16rpx;
+  padding: 20rpx 24rpx;
+  border-left: 6rpx solid #c58f6f;
+  border-radius: 8rpx;
+  background: #faf6f2;
+  color: #6b5d54;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.training-hero .progress-track {
+  margin-top: 26rpx;
+}
+
+.training-lock {
+  margin-top: 22rpx;
+  padding: 30rpx;
+}
+
+.training-lock__title {
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.training-lock__copy {
+  margin: 14rpx 0 24rpx;
+  color: #907d74;
+  font-size: 26rpx;
+  line-height: 1.6;
+}
+
+.training-preview-tip {
+  margin-top: 22rpx;
+  padding: 24rpx 28rpx;
+  background: #fff8f2;
+}
+
+.training-preview-tip__title {
+  color: #a66f4e;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.training-preview-tip__copy {
+  margin-top: 8rpx;
+  color: #907d74;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.training-content {
+  margin-top: 22rpx;
+  padding: 18rpx 0 30rpx;
+}
+
+.training-day {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 22rpx 28rpx;
+}
+
+.training-day--selected {
+  background: #fff8f2;
+}
+
+.training-day--done {
+  opacity: 0.68;
+}
+
+.training-day__num {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #f1e7df;
+  color: #c4956a;
+  font-size: 23rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.training-day--done .training-day__num {
+  background: #d8f0e1;
+  color: #3aa46b;
+}
+
+.training-day__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.training-day__title {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.training-day__moment {
+  margin-top: 6rpx;
+  color: #a08e84;
+  font-size: 22rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.training-day__status {
+  color: #c4956a;
+  font-size: 32rpx;
+}
+
+.task-detail {
+  margin: 20rpx 28rpx 0;
+  padding-top: 26rpx;
+  border-top: 2rpx solid #f0e4dc;
+}
+
+.task-detail__label {
+  color: #c4956a;
+  font-size: 22rpx;
+  font-weight: 700;
+}
+
+.task-detail__title {
+  margin-top: 10rpx;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.task-detail__ability {
+  margin-top: 12rpx;
+}
+
+.task-ability-pill {
+  display: inline-block;
+  padding: 6rpx 16rpx;
+  border-radius: 16rpx;
+  background: #eaf0f5;
+  color: #557a9f;
+  font-size: 22rpx;
+}
+
+.task-block,
+.task-example {
+  margin-top: 18rpx;
+  padding: 20rpx;
+  border-radius: 18rpx;
+  background: #fff8f3;
+}
+
+.task-block--green {
+  background: #effaf5;
+}
+
+.task-block--quiet {
+  background: #f7f3f0;
+}
+
+.task-block--growth {
+  border-left: 6rpx solid #68a56f;
+  border-radius: 8rpx;
+  background: #f0f7f0;
+}
+
+.task-block__label,
+.task-example__label {
+  color: #c4956a;
+  font-size: 23rpx;
+  font-weight: 700;
+}
+
+.task-block--green .task-block__label {
+  color: #3a9e6b;
+}
+
+.task-block--growth .task-block__label {
+  color: #4f8c57;
+}
+
+.task-block__text,
+.task-example__text {
+  margin-top: 8rpx;
+  color: #78655c;
+  font-size: 25rpx;
+  line-height: 1.7;
+}
+
+.task-example {
+  background: #f3eee9;
+}
+
+.task-example--quiet {
+  background: #f7f3f0;
+}
+
+.task-example__label {
+  color: #8b7a70;
+}
+
+.task-detail__done {
+  margin-top: 24rpx;
+}
+
+.task-detail__completed {
+  margin-top: 24rpx;
+  color: #3a9e6b;
+  font-size: 26rpx;
+  text-align: center;
+}
+
+.training-unlock-card {
+  margin: 28rpx 28rpx 0;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: #fff4e8;
+  text-align: center;
+}
+
+.training-unlock-card__title {
+  color: #8d5b3e;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.training-unlock-card__copy {
+  margin: 14rpx 0 22rpx;
+  color: #856f63;
+  font-size: 25rpx;
+  line-height: 1.7;
+  text-align: left;
+}
+
+.training-preview-error {
+  margin: 28rpx;
+  padding: 28rpx;
+  border-radius: 20rpx;
+  background: #fff8f2;
+  text-align: center;
+}
+
+.training-preview-error__title {
+  color: #8d5b3e;
+  font-size: 30rpx;
+  font-weight: 800;
+}
+
+.training-preview-error__copy {
+  margin-top: 12rpx;
+  color: #856f63;
+  font-size: 24rpx;
+  line-height: 1.7;
+}
+
+.training-preview-error__retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 20rpx;
+  padding: 0 34rpx;
+  min-width: 180rpx;
+  height: 68rpx;
+  border: 2rpx solid #d7aa87;
+  border-radius: 34rpx;
+  background: #fffdfb;
+  color: #9a6747;
+  font-size: 25rpx;
+  font-weight: 700;
+}
+
+.training-preview-error__retry::after {
+  border: 0;
+}

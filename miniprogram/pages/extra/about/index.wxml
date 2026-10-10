@@ -1,0 +1,8 @@
+<view class="page-shell about-page">
+  <view class="soft-card about-hero">
+    <view class="about-hero__icon">i</view>
+    <view class="about-hero__title">亲子对话</view>
+    <view class="about-hero__subtitle">让每一次开口，都更靠近孩子一点。</view>
+    <view class="about-hero__desc">亲子对话是一款帮助家长改善亲子沟通的日常工具，提供覆盖起床、作业、情绪管理、生活习惯等场景的话题库，并按 3-6 岁、7-9 岁、10-12 岁分龄整理内容。每个话题都配有常见的错误示范、可直接参考的沟通话术和实用建议，帮助你在遇到具体问题时找到更合适的表达，减少争吵和无效沟通。你还可以通过每日沟通练习、沟通专题和主题周持续尝试，把一次灵感变成稳定的沟通习惯，逐步增进理解、信任与合作，让孩子更愿意表达，也让家长更有把握地陪伴成长。</view>
+  </view>
+</view>

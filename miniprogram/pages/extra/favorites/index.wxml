@@ -1,0 +1,50 @@
+<view class="page-shell">
+  <view class="soft-card favorite-summary">
+    <view class="favorite-summary__title">已收藏话题</view>
+    <view class="favorite-summary__count">{{total}}<text class="favorite-summary__unit"> 个话题</text></view>
+    <view class="favorite-summary__star">★</view>
+  </view>
+
+  <scroll-view class="favorite-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="favorite-tabs__row">
+      <view
+        tt:for="{{tabs}}"
+        tt:key="label"
+        class="favorite-tab {{activeTab === item.label ? 'favorite-tab--active' : ''}}"
+        data-label="{{item.label}}"
+        bindtap="selectTab"
+      >
+        {{item.label}}（{{item.count}}）
+      </view>
+    </view>
+  </scroll-view>
+
+  <view tt:if="{{loading}}" class="loading-state">正在加载…</view>
+  <view tt:elif="{{!visibleFavorites.length}}" class="empty-state">还没有收藏的话题</view>
+  <view tt:else class="topic-list">
+    <view
+      tt:for="{{visibleFavorites}}"
+      tt:key="_id"
+      class="topic-card library-topic-card"
+      data-id="{{item._id}}"
+      bindtap="openTopic"
+    >
+      <view
+        class="star-btn favorite-card__star"
+        data-id="{{item._id}}"
+        catchtap="removeFavorite"
+      >★</view>
+      <view class="topic-card__top">
+        <text class="tag tag--secondary">{{item.contentType === 'proactive' ? item.moment : item.level1}}</text>
+      </view>
+      <view class="topic-card__title">{{item.displayTitle}}</view>
+      <view class="topic-card__footer">
+        <view class="topic-card__tags">
+          <text class="tag">{{item.ageLabel}}</text>
+          <text class="tag tag--soft">{{item.contentType === 'proactive' ? item.level1 : item.level2}}</text>
+          <text tt:if="{{item.abilityFocus}}" class="tag tag--ability">{{item.abilityFocus}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

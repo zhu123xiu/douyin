@@ -1,0 +1,202 @@
+# 数据库集合与字段总表
+版本：v1.0　日期：2026-08-09
+本文档是项目全部云数据库集合的完整字段字典，重写项目时以此为数据库建模的依据。
+---
+## 集合一览
+| 集合名 | 用途 | 文档数量级 | 写入方 | 安全规则 |
+|---|---|---|---|---|
+| `communication_topics` | 话题库主数据 | 300+ | importData | 所有用户可读，仅管理端可写 |
+| `communication_user_profiles` | 用户档案 | 每用户 1 条 | payService / trainingService / packageData | 用户只能读写自己的文档 |
+| `communication_membership_orders` | 支付订单 | 每用户 N 条 | payService | 用户只能读自己的订单 |
+| `communication_favorites` | 收藏记录 | 每用户最多 100 条 | userData | 用户只能读写自己的收藏 |
+| `communication_topic_visits` | 话题访问记录 | 每用户 N 条 | topicVisit | 用户只能读写自己的记录 |
+| `communication_pdf_assets` | PDF 文件 fileID 记录 | 3 条 | pdfAssets（开发者） | 所有用户可读，仅开发者可写 |
+| `communication_packages` | 专题包内容 | 14 条 | importData | 所有用户可读，仅管理端可写 |
+| `training_plans` | 训练计划配置 | 3-10 条 | importData | 所有用户可读，仅管理端可写 |
+| `topic_relations` | 话题关联关系 | 300+ 条 | importData | 所有用户可读，仅管理端可写 |
+---
+## 1. `communication_topics`
+话题库主数据，每条是一个独立场景的沟通话术指南。
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `_id` | string | 是 | 话题 ID，格式 `ph_年龄段_序号`（如 `ph_3_6_001`） |
+| `scenario` | string | 是 | 场景标题，如"孩子不肯起床怎么办" |
+| `scenarioDesc` | string | 是 | 场景描述，详细说明问题背景 |
+| `ageGroup` | string | 是 | 年龄段："3-6" / "7-9" / "10-12" |
+| `level1` | string | 是 | 一级分类，如"日常沟通"、"情绪管理" |
+| `level2` | string | 是 | 二级分类，如"起床问题"、"发脾气" |
+| `tags` | string | 否 | 标签，逗号分隔，用于搜索 |
+| `wrongScripts` | array | 是 | 错误示范数组，通常 3 个 |
+| `wrongScripts[].title` | string | 是 | 错误做法标题 |
+| `wrongScripts[].content` | string | 是 | 错误做法描述 |
+| `wrongScripts[].analysis` | string | 是 | 为什么这是错的 |
+| `rightScripts` | array | 是 | 正确示范数组，通常 3 个 |
+| `rightScripts[].title` | string | 是 | 正确做法标题 |
+| `rightScripts[].content` | string | 是 | 正确做法描述 |
+| `rightScripts[].analysis` | string | 是 | 为什么这样做是对的 |
+| `tips` | string | 是 | 专家小贴士 |
+| `isFree` | boolean | 是 | 是否免费。true = 免费可读，false = 付费（需会员） |
+| `sortOrder` | number | 是 | 排序号，升序排列 |
+| `status` | string | 是 | 状态："published"（已发布）/ "draft"（草稿）/ "archived"（归档） |
+索引建议：`ageGroup` 升序 + `status` 升序 + `sortOrder` 升序（联合索引）
+---
+## 2. `communication_user_profiles`
+用户档案，每用户 1 条文档，`_id` = 用户 OPENID。
+| 字段 | 类型 | 写入方 | 说明 |
+|---|---|---|---|
+| `_id` | string | — | = 用户 OPENID |
+| `_openid` | string | — | 用户 OPENID（冗余） |
+| `activated` | boolean | payService | 是否已激活（旧字段，与 membershipActive 同义） |
+| `membershipActive` | boolean | payService | 是否是会员 |
+| `membershipName` | string | payService | 会员名称，如"沟通话题会员" |
+| `membershipType` | string | payService | 会员类型："lifetime" |
+| `membershipProductCode` | string | payService | 产品代码："hot_topics_lifetime" |
+| `membershipPriceFen` | number | payService | 会员价格（5900） |
+| `membershipPurchasedAt` | serverDate | payService | 会员购买时间 |
+| `membershipExpire` | string | payService | 会员到期时间（终身会员为空或未来日期） |
+| `unlockedPackages` | array | payService | 已单独购买的专题包 id 数组，如 `["sleep", "emotion"]` |
+| `trainingProgress` | object | trainingService | 训练计划进度（首页方案新增） |
+| `trainingProgress.currentPlan` | object/null | trainingService | 当前进行中的计划，null 表示无 |
+| `trainingProgress.currentPlan.planId` | string | trainingService | training_plans 集合的 _id |
+| `trainingProgress.currentPlan.planType` | string | trainingService | "onboarding" / "theme_week" |
+| `trainingProgress.currentPlan.ageGroup` | string | trainingService | 年龄段 |
+| `trainingProgress.currentPlan.startDate` | string | trainingService | 开始日期 YYYY-MM-DD |
+| `trainingProgress.currentPlan.dayProgress` | array | trainingService | 每天完成状态数组，如 `[true, true, false, ...]` |
+| `trainingProgress.completedPlans` | array | trainingService | 已完成的计划 id 列表 |
+| `trainingProgress.onboardingDone` | boolean | trainingService | 入门计划是否已完成 |
+| `trainingProgress.selectedAgeGroup` | string | trainingService | 用户选择的年龄段 |
+| `packageProgress` | object | packageData | 专题包阅读进度（专题包方案新增） |
+| `packageProgress[包id].lastChapterIndex` | number | packageData | 最后阅读到的章节下标（0-based） |
+| `packageProgress[包id].readChapters` | array | packageData | 已读章节下标数组 |
+| `packageProgress[包id].updatedAt` | string | packageData | 最后更新时间 ISO 字符串 |
+| `lastOrderNo` | string | payService | 最近一次订单号 |
+| `createdAt` | serverDate | 各云函数 | 创建时间 |
+| `updatedAt` | serverDate | 各云函数 | 更新时间 |
+注意：三个新增字段（`unlockedPackages`/`trainingProgress`/`packageProgress`）各自独立读写，使用 `db.command.set()` 语义按字段写入，不会互相覆盖。
+---
+## 3. `communication_membership_orders`
+支付订单，尽管集合名叫 membership，实际存储所有类型订单。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | = `outTradeNo`（订单号） |
+| `outTradeNo` | string | 订单号，格式 `HT` + 时间戳 + 6 位随机数 |
+| `openid` | string | 用户 OPENID |
+| `productCode` | string | "hot_topics_lifetime"（会员）或 "topic_package"（单包） |
+| `productName` | string | 商品名称 |
+| `membershipType` | string | "lifetime"（会员）或 "package" |
+| `item_type` | string | "membership" 或 "package" |
+| `item_id` | string | 专题包 id（仅 package 类型有值） |
+| `productId` | string | 微信虚拟支付产品 id |
+| `goodsPrice` | number | 价格（分） |
+| `sourceKey` | string | 用户点击来源 key |
+| `sourceTitle` | string | 用户点击来源标题 |
+| `paymentMode` | string | 固定 "virtual" |
+| `offerId` | string | XPAY Offer ID |
+| `xpayEnv` | number | 0 = 正式，1 = 沙箱 |
+| `status` | string | "pending" → "delivered" → "paid" / "closed" |
+| `transactionId` | string | 微信交易号 |
+| `closeReason` | string | 关闭原因（如 "recreated_for_retry"） |
+| `paidAt` | serverDate | 支付时间 |
+| `deliveredAt` | serverDate | 发货时间 |
+| `callbackEvent` | string | 回调事件名 |
+| `callbackPayload` | object | 回调原始数据 |
+| `createdAt` | serverDate | 创建时间 |
+| `updatedAt` | serverDate | 更新时间 |
+---
+## 4. `communication_favorites`
+收藏记录，每用户对每条话题最多 1 条。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | 格式 `openid_topicId` |
+| `openid` | string | 用户 OPENID |
+| `topicId` | string | 话题 _id |
+| `ageGroup` | string | 话题年龄段（冗余） |
+| `level1` | string | 话题一级分类（冗余） |
+| `level2` | string | 话题二级分类（冗余） |
+| `scenario` | string | 话题场景标题（冗余） |
+| `createdAt` | serverDate | 收藏时间 |
+---
+## 5. `communication_topic_visits`
+话题访问记录，每用户每条话题最多 1 条。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | 格式 `openid_topicId` |
+| `openid` | string | 用户 OPENID |
+| `topicId` | string | 话题 _id |
+| `ageGroup` | string | 话题年龄段（冗余） |
+| `level1` | string | 话题一级分类（冗余） |
+| `level2` | string | 话题二级分类（冗余） |
+| `firstViewedAt` | serverDate | 首次访问时间 |
+| `lastViewedAt` | serverDate | 最后访问时间 |
+---
+## 6. `communication_pdf_assets`
+PDF 文件云存储 fileID 记录，每个 PDF 一条。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | PDF key："bedtime" / "kindergarten" / "school" |
+| `key` | string | PDF key（冗余） |
+| `title` | string | PDF 标题 |
+| `fileName` | string | 文件名，如 "bedtime.pdf" |
+| `cloudPath` | string | 云存储路径，如 "communication-pdfs/bedtime.pdf" |
+| `fileID` | string | 云文件 ID，如 "cloud://cloudbase-xxx/communication-pdfs/bedtime.pdf" |
+| `uploadedBy` | string | 上传者 OPENID |
+| `updatedAt` | serverDate | 更新时间 |
+---
+## 7. `communication_packages`
+专题包内容，每个专题包一条文档。
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `_id` | string | 是 | 包 id，英文小写短词，如 "sleep"、"emotion"、"kindergarten" |
+| `title` | string | 是 | 专题包标题 |
+| `subtitle` | string | 否 | 副标题 |
+| `intro` | string | 是 | 简介 |
+| `cover` | string | 否 | 封面图路径 |
+| `iconPath` | string | 否 | 图标路径 |
+| `gradientFrom` | string | 否 | 渐变起始色值，如 "#E0A998"，用于卡片背景渲染 |
+| `gradientTo` | string | 否 | 渐变终止色值，如 "#C4956A"，用于卡片背景渲染 |
+| `parts` | array | 否 | 章节分组顺序，如 ["认知篇","场景篇","关系篇","进阶篇","工具篇"] |
+| `partTopics` | object | 否 | 各部分挂载的实战话题 id，其并集即本包解锁的话题范围 |
+| `contentType` | string | 否 | 内容类型："chapters"（章节化）/ "pdf"（旧 PDF 形态过渡期） |
+| `ageGroups` | array | 是 | 适用年龄段数组，如 `["3-6", "7-9", "10-12"]` |
+| `price` | number | 否 | 价格（元），如 9.9 |
+| `priceFen` | number | 否 | 价格（分），如 990 |
+| `isFree` | boolean | 是 | 是否免费（整包免费标记，当前所有专题包均为 false） |
+| `sortOrder` | number | 是 | 排序号 |
+| `status` | string | 是 | "published" / "draft" |
+| `pdfKey` | string | 否 | 旧 PDF key（过渡期用，contentType 为 pdf 时有值） |
+| `chapters` | array | 是 | 章节数组 |
+| `chapters[].title` | string | 是 | 章节标题 |
+| `chapters[].isFree` | boolean | 否 | 该章节是否免费试读 |
+| `chapters[].sections` | array | 是 | 小节数组 |
+| `chapters[].sections[].heading` | string | 是 | 小节标题，如"常见误区"、"推荐做法"、"话术示例" |
+| `chapters[].sections[].content` | string | 是 | 小节正文 |
+---
+## 8. `training_plans`
+训练计划配置，包含入门计划和主题周。
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `_id` | string | 是 | 计划 id，如 "onboarding_3_6"、"theme_week_emotion" |
+| `planType` | string | 是 | "onboarding"（入门计划） / "theme_week"（主题周） |
+| `ageGroup` | string | 是 | 适用年龄段 |
+| `title` | string | 是 | 计划标题 |
+| `subtitle` | string | 否 | 副标题 |
+| `icon` | string | 否 | 图标标识 |
+| `isFree` | boolean | 否 | 是否免费 |
+| `sortOrder` | number | 是 | 排序号 |
+| `status` | string | 是 | "published" / "draft" |
+| `days` | array | 是 | 每日计划数组 |
+| `days[].day` | number | 是 | 第几天（1-based） |
+| `days[].topicId` | string | 是 | 指向 communication_topics 的 _id |
+| `days[].guide` | string | 是 | 当天引导文案 |
+| `days[].label` | string | 是 | 当天学习标签，如"日常沟通"、"情绪应对" |
+---
+## 9. `topic_relations`
+话题关联关系，用于话题详情页的"场景推荐"模块。
+| 字段 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `_id` | string | 是 | = `topicId`（每条话题一条关联记录） |
+| `topicId` | string | 是 | 话题 _id |
+| `related` | array | 是 | 关联话题数组 |
+| `related[].topicId` | string | 是 | 关联话题的 _id |
+| `related[].type` | string | 是 | 关联类型，如"场景延伸"、"进阶挑战" |
+| `related[].label` | string | 是 | 关联标签文案 |

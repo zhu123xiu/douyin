@@ -1,0 +1,1809 @@
+[
+  {
+    "_id": "emotion",
+    "title": "陪孩子搞定「情绪火山」",
+    "subtitle": "30章 · 35个实战场景",
+    "intro": "从识别情绪信号到当场应对，从事后复盘到长期能力培养。30 章方法论配 35 个真实场景实战话术，读完就能用。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 30,
+    "sortOrder": 1,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：识别情绪崩溃的信号和阶段",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：情绪崩溃时，孩子大脑发生了什么",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：不同气质类型的孩子，反应天差地别",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：被忽略的生理诱因——睡眠、血糖、感统",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：区分情绪崩溃与行为操纵",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：当场应对——不同年龄段话术",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：公共场合情绪崩溃的应对",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：商场超市里的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：餐厅里的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：在亲戚家：权威冲突下的应对",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：公共交通上的封闭空间",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：幼儿园与学校门口的分离时刻",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：医院与诊所：恐惧叠加疼痛",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：旅途中：疲惫与失控感",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：输不起：游戏与比赛中的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：家长自己情绪失控怎么办",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：夫妻教育方式不一致",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：隔代教养的冲突",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：吼完孩子之后，怎么修复关系",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：孩子只对你发脾气，对别人从来不会",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：事后复盘——不引发二次崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：长期能力培养——学会自己管情绪",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：常见误区与疑难场景",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：教孩子说出感受：情绪词汇教学",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：什么时候需要专业帮助",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：特殊时期：入学、搬家、二胎降生",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：工具包——让情绪管理可视化",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：情绪日记：找到你家的崩溃规律",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：家庭情绪公约",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：30 天练习计划",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "homework",
+    "title": "不吼不叫搞定「作业拖延症」",
+    "subtitle": "30章 · 50个实战场景",
+    "intro": "从拖延真相到环境管理，从陪写技巧到内驱力培养。30 章方法论配 50 个真实场景实战话术，建立不焦虑的作业陪伴体系。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 30,
+    "sortOrder": 2,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：拖延的真实原因——不是懒",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：五种拖延类型的鉴别",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：畏难型：为什么他不敢动第一笔",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：注意力型：坐不住的生理与环境因素",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：被忽略的生理因素：视力、书写困难、睡眠",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：马虎不是态度问题",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：环境和时间管理",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：放学后到开始写作业的这段时间",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：卡在不会做的题上",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：字迹潦草与重写崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：订正错题时的对抗",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：作业记不住、丢三落四",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：只肯做喜欢的科目",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：假期与周末的时间黑洞",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：抄答案、找人代写",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：抗拒上学与躯体化反应",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：怎么陪写不变成战场",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：家长焦虑的自我调节",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：从「盯着写」到「自己写」的撤退路径",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：讲题讲到互相崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：成绩下滑时的第一句话",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：培养自主学习的内驱力",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：考试焦虑与成绩沟通",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：不同学科的沟通技巧",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：「为什么非要学习」怎么回答",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：学龄前：保护好奇心比认字更重要",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：常见误区清单与急救话术",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：作业启动清单",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：错题本的正确用法",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：21天作业习惯计划",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "screen",
+    "title": "手机不是洪水猛兽：从对抗到共管",
+    "subtitle": "24章 · 40个实战场景",
+    "intro": "从理解依赖到制定协议，从游戏干预到网络安全。24 章方法论配 40 个真实场景实战话术，建立能执行的家庭屏幕规则。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 24,
+    "sortOrder": 3,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：为什么不能一禁了之",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：不同年龄段的合理使用时长",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：屏幕为什么这么难放下——设计出来的吸引力",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：区分放松、社交与逃避三种使用动机",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：屏幕对视力、睡眠与注意力的真实影响",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：游戏沉迷的识别和干预",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：网络社交安全教育",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：约定时间到了却不肯停",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：强行没收引发的情绪失控",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：吃饭必须看屏幕",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：睡前的屏幕与入睡困难",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：偷偷玩、藏起来玩",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：模仿网络内容与不当言行",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：游戏充值与偷偷付费",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：家长以身作则",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：夫妻与祖辈标准不一致",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：从监督到信任——隐私与设备边界",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：网络冲突与追星——家长该不该介入",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：已经沉迷时的补救步骤",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：重建线下的乐趣——不玩屏幕就喊无聊",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：把控制权逐步交还给孩子",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：制定家庭屏幕协议",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：设备设置与技术手段清单",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：屏幕使用的家庭复盘会",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "anti_spoiling",
+    "title": "不溺爱也不匮乏：孩子的金钱与责任课",
+    "subtitle": "18章 · 金钱观、责任感与家庭边界",
+    "intro": "从谈钱、零用钱和家庭账本出发，帮助孩子理解资源、欲望、责任与感恩，在温和而坚定的边界中建立健康的金钱观。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 18,
+    "sortOrder": 4,
+    "status": "published",
+    "gradientFrom": "#D8B58A",
+    "gradientTo": "#B8895F",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：反溺爱不是少给，是教会孩子与资源相处",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：从孩子提问开始谈钱",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：让孩子看见家庭账本",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：零用钱是一门等待课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：家务不该买断责任",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：聪明消费从区分需要和想要开始",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：广告、同伴与物质比较——帮孩子建立“信息免疫力”",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：说“不”的能力——温和而坚定的金钱边界",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：慷慨不是口号，是可以练习的肌肉",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：给孩子一份真实的慈善预算——让善意有账可查",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：为什么孩子需要真实地工作——从零花钱到第一笔自己挣的钱",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：从家务到独立：一张分龄责任地图",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：感恩不是一句谢谢",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：让孩子理解差异，而不是消费贫穷",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：家庭节制：创造比占有更丰盛的生活",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：多少钱才够：把预算变成价值观的地图",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：父母先松开：反溺爱的自我校准",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：从今天开始的家庭行动计划",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "bridge",
+    "title": "幼小衔接不抢跑：从大班到一年级",
+    "subtitle": "20章 · 入学准备与一年级适应",
+    "intro": "把幼小衔接从提前学知识，转回心理、体能、自理、规则与学习习惯的全面准备，陪孩子平稳走过开学后的关键阶段。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 20,
+    "sortOrder": 5,
+    "status": "published",
+    "gradientFrom": "#9FC6D8",
+    "gradientTo": "#6E9FB8",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：幼儿园和小学到底差在哪",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：幼小衔接到底衔接什么",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：提前学的陷阱：为什么抢跑反而吃亏",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：家长自己的心理准备",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：入学准备时间轴：从大班到一年级的行动清单",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：让孩子盼着上小学：心理预热的具体做法",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：体能准备：睡眠、锻炼与体检",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：生活自理：入学前的十项基本功",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：学习用品清单：书包文具怎么选不踩坑",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：打造家里的学习小天地",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：规则意识与时间观念的养成",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：开学第一个月：不适应清单与应对",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：「想回幼儿园」：恋园现象的疏导",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：课间十分钟：被忽视的生存技能",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：坐得住、听得进：专注力训练",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：一年级作业的特点与陪写边界",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：与老师沟通的时机、方式与分寸",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：师生关系与同学矛盾的幕后教练",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：批评、挫折与情绪低落的应对话术",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：家长自检清单：十五个问题测出你的衔接准备度",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "bullied",
+    "title": "孩子被欺负怎么办：校园欺凌应对手册",
+    "subtitle": "17章 · 识别、取证、沟通与修复",
+    "intro": "帮助家长区分欺凌、打闹与普通冲突，识别预警信号，掌握倾听、取证、家校沟通、升级处理和心理修复的完整路径。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 17,
+    "sortOrder": 6,
+    "status": "published",
+    "gradientFrom": "#D6A4A4",
+    "gradientTo": "#B97070",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：什么是欺凌——跟打闹、冲突到底差在哪",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：欺凌的五种面孔——身体、言语、关系、网络、财物",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：欺凌三角——欺负者、被欺负者与旁观者",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：孩子为什么不说——沉默的四大原因",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：预警信号——孩子不说，但会漏出来",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：开口的艺术——把疑点谈成事实",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：第一反应定成败——听到「我被欺负了」之后",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：先修人，再办事——把孩子的状态放在第一位",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：取证与记录——你的弹药库",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：与学校沟通——从班主任到校长的阶梯",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：升级与兜底——教育局、警方与转学的抉择",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：给孩子穿上盔甲——日常自卫的四层防御",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：网络欺凌应对手册——屏幕背后的战场",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：特殊场景手册——幼儿、女孩、男孩与「我的孩子是欺凌者」",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：疗伤——被欺负之后的心理修复",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：旁观者的觉醒——当你的孩子是观众",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：收官——一张随身地图和几个承诺",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "emocoach",
+    "title": "做孩子的情绪教练：30堂情商课",
+    "subtitle": "30章 · 共情、界限与问题解决",
+    "intro": "从父母对情绪的底层态度开始，系统练习觉察、共情、命名、设限和解决问题，在不同成长阶段陪孩子发展可持续的情绪能力。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 30,
+    "sortOrder": 7,
+    "status": "published",
+    "gradientFrom": "#E4AA92",
+    "gradientTo": "#C87F68",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：情商不是天生的——情绪力，决定孩子的一生",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：情绪管理训练——一套可以学会的教养操作系统",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：元情绪——你对孩子情绪的底层态度从哪来",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：四种教养方式——先给自己画张像",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：忽视型父母——「这有什么好哭的」",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：压抑型父母——情绪必须被扑灭",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：放任型父母——有共情，没有指导",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：第一步·觉察——情绪在爆发前就已经说话",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：第二步·抓时机——情绪时刻是亲密的入口",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：第三步·共情倾听——先接住心情，再处理事情",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：第四步·命名——情绪词汇是调节的开关",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：第五步·划界限——情绪全接受，行为分对错",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：问题解决——让孩子自己找到出路",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：孩子的恐惧——从怕黑、噩梦到不肯上学",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：孩子的悲伤——宠物死了、朋友走了",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：孩子的愤怒——火山底下藏着真需求",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：打人、咬人、摔东西——行为越界怎么办",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：自主性——让孩子当情绪的主人",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：大人失控时——教养的中断与修复",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：夫妻吵架，孩子全看得见",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：当着孩子面，把架吵得体面",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：婚姻变了，教养不变",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：爸爸的参与，决定孩子情商的天花板",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：忙碌爸爸的情绪教练课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：婴儿期——哭声里的第一堂情绪课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：幼儿期——「我自己来」的情绪风暴",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：幼童期——恐惧高峰与假想朋友",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：少年期——同伴世界与自我认同",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：青春期——风暴里做孩子的同盟",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：最后一课——让情绪教养代代相传",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "games",
+    "title": "50个家庭情绪力游戏",
+    "subtitle": "50章 · 在游戏中学会表达与冷静",
+    "intro": "用清单、绘画、呼吸、角色扮演和亲子互动，把抽象的情绪能力变成孩子愿意参与的家庭小游戏，随时练习觉察、表达与自我调节。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 50,
+    "sortOrder": 8,
+    "status": "published",
+    "gradientFrom": "#A9C9A3",
+    "gradientTo": "#719D69",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：晨务清单——把早晨的主动权还给孩子",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：励志语——给自己一句加油的话",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：情绪测量表——给情绪装上温度计",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：找到情绪词——扩充孩子的情绪词汇量",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：情绪花园——在心里种下一片安定",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：泡泡山——用一口气吹散火气",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：我的独家秘方——专属自己的冷静配方",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：情绪的颜色——给感受画一张身份证",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：愁云里有什么——把烦恼画出来",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：香喷喷面团——捏出来的平静",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：走迷宫——慢下来才能走出去",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：舒适角——给自己搭一个安全基地",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：红绿灯——停下来、想一想、再行动",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：晚间感恩——睡前存进三件好事",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：喷走坏心情——把情绪吹出体外",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：融化的冰块——从僵硬到放松",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：控制圈——分清「我能管的」和「我管不了的」",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：猎豹、小鸡、蜗牛——给身体换挡",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：曼陀罗——涂色里的专注与安静",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：感受力测试——认识自己的感官开关",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：我的超能力——盘点孩子的闪光点",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：家庭欢乐罐——存下全家的好时光",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：做个「迷」人的朋友——学会欣赏别人",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：超级善良的孩子——善意是可以练习的",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：做一根魔杖——给自己一点积极暗示",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：猜猜我的感受——读懂表情的脸",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：道歉填空——学会真诚地说对不起",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：把兄弟姐妹送上太空——化解手足竞争的想象游戏",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：社交故事漫画——把难题画成剧本",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：给抱抱杯续水——看见爱的储存量",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 31,
+        "title": "第三十一章：生气是什么感觉——在身体里找到愤怒",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 32,
+        "title": "第三十二章：人形卷饼——用拥抱裹住自己",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 33,
+        "title": "第三十三章：动物行走——放电也可以很安静",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 34,
+        "title": "第三十四章：高级餐厅游戏——在扮演里学会等待与礼貌",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 35,
+        "title": "第三十五章：情绪纸牌——一张牌认识一种情绪",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 36,
+        "title": "第三十六章：朋友最喜欢的事——记住别人在意的",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 37,
+        "title": "第三十七章：「需要帮忙吗」——学会求助与助人",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 38,
+        "title": "第三十八章：秘密手语——全家人才懂的信号",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 39,
+        "title": "第三十九章：闪闪罐——瓶子里的一场流星雨",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 40,
+        "title": "第四十章：呼吸的形状——把看不见的呼吸画出来",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 41,
+        "title": "第四十一章：情绪背包——清点心里背着的重量",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 42,
+        "title": "第四十二章：情绪都在哪儿——给身体做一次情绪扫描",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 43,
+        "title": "第四十三章：粉碎压力怪兽——把紧张写下来撕掉",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 44,
+        "title": "第四十四章：呼吸风车——吹动它，慢下来",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 45,
+        "title": "第四十五章：冷静盒子——提前打包好的救急包",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 46,
+        "title": "第四十六章：摆脱情绪——把坏感觉抖出身体",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 47,
+        "title": "第四十七章：巨龙呼吸法——像喷火龙一样深呼吸",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 48,
+        "title": "第四十八章：快乐看得见——收集看得见的美好",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 49,
+        "title": "第四十九章：扑灭情绪之火——给怒火降温的想象练习",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 50,
+        "title": "第五十章：冷静菜单——点一道属于你的平静",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "kindergarten",
+    "title": "第一次上幼儿园：择园与入园适应",
+    "subtitle": "24章 · 从选园准备到家园沟通",
+    "intro": "覆盖选园、报名、体检、自理训练、分离预演和入园后的常见适应问题，帮助家长和孩子更从容地迈出集体生活第一步。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 24,
+    "sortOrder": 9,
+    "status": "published",
+    "gradientFrom": "#9EC5BD",
+    "gradientTo": "#669A90",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：入园前先想清楚——为什么送孩子上幼儿园",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：几岁入园最合适——年龄、能力与自信",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：划定合理范围——离家近比你想的更重要",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：四步排除法——从海选到锁定目标园",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：摸底调查——摸清目标园的外部情况",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：招生信息大搜索——别错过报名时机",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：实地考察五看法——眼睛该往哪里看",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：面谈五问——问出幼儿园的真水平",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：看懂教育理念与特色课程——别被名字忽悠",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：试听与观摩——亲身体验再决策",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：报名占位与材料清单——把名额稳稳拿到手",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：入园体检——查查更健康",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：心理准备——让孩子期待上幼儿园",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：自理能力训练——自己吃饭、如厕、穿衣",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：作息调整与物品准备——对齐幼儿园节奏",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：分离预演——练习短暂分开",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：家长自己的心理准备——别让焦虑传染",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：入园第一天——怎么送、怎么接",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：分离焦虑全解析——哭是正常的",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：不适应症识别与应对（上）——哭闹、沉默、绝食、拒睡、叛逆、搞破坏",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：不适应症识别与应对（下）——说假话、恋物、粘人、脆弱、胆小、噩梦",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：「入园一月病」——为什么刚上幼儿园容易生病",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：认识幼儿园里的老师们——家园共育的入口",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：与老师高效沟通与入园自检清单",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "motivation",
+    "title": "点燃孩子的主动性：告别催促与奖励",
+    "subtitle": "18章 · 动机、成长型思维与自主感",
+    "intro": "看懂怕失败、奖励依赖和家长接管如何削弱主动性，通过合适的挑战、正确归因和成长型思维，把行动的方向盘逐步还给孩子。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 18,
+    "sortOrder": 10,
+    "status": "published",
+    "gradientFrom": "#A8BBDD",
+    "gradientTo": "#708CBF",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：主动性从哪来——孩子不是懒，是动机系统没点着",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：怕失败的真相——从「不敢举手」到「一输就哭」",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：习得性无助——「我不行」是怎么被练成的",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：表扬的陷阱——「你真聪明」如何悄悄毁掉主动性",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：奖励的悖论——为什么奖品越多，孩子越不干",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：期望与比较——两大好心的误区",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：家长的接管——包办、催促与被安排的人生",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：难度的艺术——太容易无聊，太难放弃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：挑战性任务——跳一跳够得着的设计法",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：权威型教养——热情接纳与合理标准",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：正确归因——把成功归于努力和方法",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：淡化竞争——和自己比的孩子走得更远",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：发现兴趣潜能——主动性最好的燃料",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：成长型思维训练——「我暂时还不行」的魔力",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：失败重构——家庭的失败课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：把方向盘还给孩子——自主感的日常喂养",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：分龄行动手册——三套年龄段的家庭路线",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：收官——一张地图和一份家庭自查清单",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "pocketmoney",
+    "title": "零花钱第一课：让孩子真正学会用钱",
+    "subtitle": "16章 · 零用钱、预算与消费选择",
+    "intro": "从压岁钱、家务报酬和固定零用钱切入，让孩子在真实选择中学习预算、储蓄、延迟满足和明智消费。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 16,
+    "sortOrder": 11,
+    "status": "published",
+    "gradientFrom": "#E7C39B",
+    "gradientTo": "#CE9561",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：取之不尽的错觉——孩子眼中的钱，和大人想的不一样",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：金钱教育教什么——不是培养财商神童，是培养会用钱获得幸福的人",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：谈钱不忌讳——把超市、新闻和餐桌变成经济课堂",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：「免费」的最贵——等价交换和骗术免疫第一课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：压岁钱的两分法——感谢、存下大头，留一份练手",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：看见家庭账本——洗一次澡要多少钱",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：钱从哪里来——和孩子聊聊「工作」这件事",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：在家「打工」——家务报酬的边界与第一次赚钱",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：零花钱开闸——定额、按周发、像工资一样正式",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：预算听证会——必须、想要、以后要用的钱",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：零花钱账本——想好了，再花钱",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：「妈妈，钱不够了」——预支、借条和利息",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：会生钱的存钱罐——认识钱、储蓄和复利",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：会买才是真本事——明智消费者的购物课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：管住「想要」——欲望管理六问",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：忍住别插手——四种孩子的四种给法，和最终的放手",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "routine",
+    "title": "告别磨蹭：孩子的时间管理课",
+    "subtitle": "20章 · 时间感、惯例与自主安排",
+    "intro": "理解孩子磨蹭背后的发展规律，用可视化时间、流程表和自然后果建立日常节奏，让早晨、作业、出门和睡前少一些催促。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 20,
+    "sortOrder": 12,
+    "status": "published",
+    "gradientFrom": "#D7AE98",
+    "gradientTo": "#B98068",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：孩子不是故意磨蹭——磨蹭背后的四个真相",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：时间观念是长出来的——0到12岁时间感发展地图",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：越催越慢——为什么催促是磨蹭的加速器",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：忍住别插手——家长的角色是教练，不是闹钟",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：让时间看得见——沙漏、计时器和家庭闹钟",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：先做什么后做什么——教孩子排出先后顺序",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：还剩多少时间——剩余时间感训练",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：合理分配时间——教孩子做时间的小主人",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：一日惯例表——把每天过成流程，而不是战场",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：早晨大作战——起床、穿衣、出门的提速方案",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：晚上不拖堂——作业、洗漱、睡觉的睡前程序",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：出门丢三落四——书包、物品与「检查卡」",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：假期与周末——没有课表的日子怎么过",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：等一等的艺术——耐心与延迟满足训练",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：让孩子承担自然后果——迟到一次，胜过催一百次",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：分龄训练手册——三岁到十二岁的三套路线",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：当计划被打乱——弹性、调整与家庭复盘",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：家长自检——你的时间管理，是孩子的第一本教材",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：高频磨蹭现场速查——错误说法与正确说法对照",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：收官——二十一天家庭时间管理挑战",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "social",
+    "title": "孩子的社交课：交友、边界与冲突",
+    "subtitle": "24章 · 表达、拒绝、修复与防欺凌",
+    "intro": "从社交发展和先天气质出发，练习分享、轮流、坚定表达、关系边界、冲突解决与和好，让孩子既能连接他人，也能保护自己。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 24,
+    "sortOrder": 13,
+    "status": "published",
+    "gradientFrom": "#C4A8C8",
+    "gradientTo": "#986F9F",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：社交能力，通往幸福的阶梯",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：0-12 岁社交发展地图——你家孩子在哪一站",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：先天气质与社交风格——慢热不等于社交差",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：家长教养风格自检——四种风格你用哪种",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：六大原则优化社交环境——治本先于治标",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：情感字词课——先认感受，再谈社交",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：分清我的、别人的、大家的——物品归属与边界",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：分辨社交距离——熟人怎么玩，陌生人怎么办",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：正确分享——为什么强迫分享适得其反",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：正确轮流——等待、规则与挫败感",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：四种沟通风格——被动、强势与坚定",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：为自己挺身而出——「我……」句式与万能的「你……」问题",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：有善意也要有盔甲——边界感训练",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：给话语注入力量——语气、音量与眼神",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：分辨真假朋友——关系攻击与服从测试",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：敢拒绝，也经得起被拒绝",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：聪明地反击——分清事实与观点",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：「为什么没人跟我玩」——帮慢热的孩子交到朋友",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：社交免疫力——冲突是孩子的必修课",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：多种解决办法——冲突里的头脑风暴",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：考虑后果与分步计划——把聪明变成周全",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：和好的艺术——道歉、原谅与修复",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：预防欺凌——识别、应对与家校协作",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：家长是最好的社交教练——角色、话术与毕业标准",
+        "isFree": false
+      }
+    ]
+  }
+]

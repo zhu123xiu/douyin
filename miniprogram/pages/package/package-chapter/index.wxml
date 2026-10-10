@@ -1,0 +1,60 @@
+<view class="page-shell">
+  <view tt:if="{{loading}}" class="loading-state">正在加载专题内容...</view>
+  <view tt:elif="{{errorMessage}}" class="empty-state">{{errorMessage}}</view>
+  <view tt:elif="{{!packageData}}" class="empty-state">暂无专题内容</view>
+  <view tt:else>
+    <view class="package-hero" style="background: {{packageData.gradientStyle}};">
+      <view class="package-hero__title">{{packageData.title}}</view>
+      <view class="package-hero__meta">{{packageData.chapterCountText}} · 前{{packageData.freeCount}}章免费</view>
+      <view class="package-hero__intro">{{packageData.intro}}</view>
+    </view>
+
+    <view class="soft-card package-summary">
+      <view class="package-summary__stat">
+        <view class="package-summary__num">{{packageData.readCount}}</view>
+        <view class="package-summary__label">已读章节</view>
+      </view>
+      <view class="package-summary__stat">
+        <view class="package-summary__num">{{packageData.chapterCount}}</view>
+        <view class="package-summary__label">总章节</view>
+      </view>
+      <view
+        class="package-summary__stat {{packageData.unlocked ? '' : 'package-summary__stat--actionable'}}"
+        bindtap="goPurchase"
+        hover-class="{{packageData.unlocked ? 'none' : 'package-summary__stat--pressed'}}"
+        hover-stay-time="120"
+      >
+        <view class="package-summary__num">{{packageData.priceText}}</view>
+        <view class="package-summary__label">{{packageData.unlocked ? '已解锁' : '立即解锁 ›'}}</view>
+      </view>
+    </view>
+
+    <view class="soft-card chapter-catalog">
+      <view class="chapter-catalog__head">
+        <view class="chapter-catalog__title">章节目录</view>
+        <view class="chapter-catalog__hint">
+          {{packageData.unlocked ? packageData.progressText : '可先试读前 2 章'}}
+        </view>
+      </view>
+
+      <view
+        tt:for="{{packageData.catalog}}"
+        tt:key="_id"
+        class="chapter-item"
+        data-id="{{item._id}}"
+        bindtap="openChapter"
+      >
+        <view class="chapter-item__index">{{item.chapterIndex}}</view>
+        <view class="chapter-item__body">
+          <view class="chapter-item__title">{{item.title}}</view>
+          <view class="chapter-item__meta">
+            {{item.isFree ? '免费试读' : item.locked ? '解锁后可读' : '已解锁'}}
+          </view>
+        </view>
+        <view class="chapter-item__tag">
+          {{item.locked ? '锁定' : '阅读'}}
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

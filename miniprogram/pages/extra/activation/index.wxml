@@ -1,0 +1,75 @@
+<view class="page-shell activation-page">
+  <view tt:if="{{sourceTitle}}" class="soft-card source-banner">来自：{{sourceTitle}}</view>
+
+  <view class="activation-hero">
+    <view class="activation-hero__icon">📕</view>
+    <view class="activation-hero__title">解锁全部沟通内容</view>
+    <view tt:if="{{sourceTitle}}" class="activation-hero__subtitle">开通后可解锁“{{sourceTitle}}”剩余 6 天，并使用全部会员主题周</view>
+    <view tt:else class="activation-hero__subtitle">全部已上线话题、沟通专题与主题周，一次购买长期可用</view>
+  </view>
+
+  <view class="soft-card benefit-card">
+    <view tt:for="{{perks}}" tt:key="*this" class="benefit-card__item">
+      <view class="benefit-card__num">{{index + 1}}</view>
+      <view class="benefit-card__text">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="options-title">选择方案</view>
+
+  <view
+    class="soft-card price-option {{selectedSku === 'membership' ? 'price-option--active' : ''}}"
+    data-sku="membership"
+    bindtap="selectSku"
+  >
+    <view class="price-option__left">
+      <view class="price-option__name">沟通话题会员</view>
+      <view class="price-option__desc">全部已上线话题、专题包与主题周</view>
+    </view>
+    <view class="price-option__right">
+      <view class="price-option__price">¥99</view>
+      <view class="price-option__unit">一次性</view>
+    </view>
+  </view>
+
+  <view
+    tt:if="{{mode === 'package' && packageMeta}}"
+    class="soft-card price-option {{selectedSku === 'package' ? 'price-option--active' : ''}}"
+    data-sku="package"
+    bindtap="selectSku"
+  >
+    <view class="price-option__left">
+      <view class="price-option__name">{{packageMeta.title}}</view>
+      <view class="price-option__desc">{{packageMeta.chapterCountText}} · 前{{packageMeta.freeCount}}章免费</view>
+    </view>
+    <view class="price-option__right">
+      <view class="price-option__price">{{packageMeta.priceText}}</view>
+      <view class="price-option__unit">单专题</view>
+    </view>
+  </view>
+
+  <button class="primary-btn activation-btn" loading="{{paying}}" bindtap="startPurchase">
+    {{isMember && selectedSku === 'membership' ? '立即返回首页查看' : selectedSku === 'package' ? '立即开通' : '立即开通'}}
+  </button>
+
+  <view class="activation-note">支付后长期有效，暂不支持退款</view>
+
+  <view class="section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">购买记录</view>
+    </view>
+  </view>
+
+  <view tt:if="{{!orders.length}}" class="empty-state">暂时还没有购买记录</view>
+  <view tt:else class="order-list">
+    <view tt:for="{{orders}}" tt:key="outTradeNo" class="soft-card order-item">
+      <view class="order-item__status">✓</view>
+      <view class="order-item__content">
+        <view class="order-item__name">{{item.productName}}</view>
+        <view class="order-item__meta">{{item.outTradeNo}} · {{item.createdAt}}</view>
+      </view>
+      <view class="order-item__right">{{item.deliveryPending ? '已开通·同步中' : item.status === 'delivered' || item.status === 'paid' ? '已完成' : item.status === 'closed' ? '已关闭' : '确认中'}}</view>
+    </view>
+  </view>
+</view>

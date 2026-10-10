@@ -1,0 +1,915 @@
+# 微信虚拟支付对接文档
+版本：v1.0　日期：2026-08-09
+本文档描述 `payService` 云函数中微信虚拟支付（XPAY）的完整对接链路，包括环境变量配置、签名算法、下单/支付/发货全流程，以及 `payService/index.js` 的完整源码。重写项目时以此为支付基础设施的实施依据。
+---
+## 一、支付体系概述
+本项目使用微信小程序虚拟支付（XPAY），适用于虚拟商品类目。不支持真实微信支付（JSAPI/Native），因为小程序虚拟商品只能用虚拟支付。
+双 SKU 模型：
+| 商品类型 | itemType | 价格 | productId | 说明 |
+|---|---|---|---|---|
+| 会员 | `membership` | 5900 分（59 元） | `hot_topics_life` | 永久解锁全部话题 + 全部专题包 |
+| 单个专题包 | `package` | 990 分（9.9 元） | `topic_package` | 仅解锁指定专题包 |
+`VALID_PACKAGE_IDS` 通过 `packageData` 云函数的 `validIds` action 动态获取全部已发布专题包 ID 列表（带 5 分钟缓存 + 兜底列表）。购买单包时 `itemId` 必须在有效列表中。`purchaseType` 已废除，11 个包全部支持单买。
+---
+## 二、环境变量配置
+`payService` 云函数依赖以下环境变量（在微信开发者工具 → 云开发 → 云函数 → 环境变量中配置）：
+| 环境变量 | 说明 | 示例 |
+|---|---|---|
+| `XPAY_OFFER_ID` | 虚拟支付 Offer ID，在微信支付商户平台获取 | `123456789` |
+| `XPAY_APP_SECRET` | 小程序 AppSecret，在微信公众平台 → 开发 → 开发设置获取 | `abc123...` |
+| `XPAY_SANDBOX_APP_KEY` | 沙箱环境 AppKey，用于测试支付 | `sandbox_key...` |
+| `XPAY_PROD_APP_KEY` | 正式环境 AppKey，用于真实支付 | `prod_key...` |
+`getConfig()` 函数读取这 4 个变量。`assertRuntimeConfig(paymentEnv)` 在每次下单/签名前校验必填项是否配置，缺失时抛出明确错误消息（如"未配置 XPAY_OFFER_ID"）。
+---
+## 三、核心函数链路
+### 3.1 支付全流程（前端 → 云函数 → 微信平台）
+```
+activation 页 startPurchase()
+  │
+  ├─① createPurchaseOrder（创建订单）
+  │    payService 云函数
+  │    → 校验 openid / itemType / itemId
+  │    → 查 profile 判断是否已购（已购返回 alreadyPurchased）
+  │    → 清理同商品的待支付订单（closePendingOrders）
+  │    → 生成 outTradeNo（HT + 时间戳 + 随机数）
+  │    → 写入 communication_membership_orders 集合（status: "pending"）
+  │    → 返回 outTradeNo
+  │
+  ├─② wx.login() 获取 loginCode
+  │
+  ├─③ createPaySign（构造支付签名）
+  │    payService 云函数
+  │    → 校验订单存在性 + openid 匹配
+  │    → jscode2session 换取 session_key
+  │    → 构造 signData JSON
+  │    → HMAC-SHA256 双签名（paySig + signature）
+  │    → 更新订单（写入 productId / goodsPrice / itemType）
+  │    → 返回 { mode, signData, paySig, signature }
+  │
+  ├─④ wx.requestVirtualPayment（前端调起支付）
+  │    微信客户端弹起支付确认
+  │    用户确认支付 / 取消支付
+  │
+  └─⑤ waitForMembershipActivated（轮询确认）
+       最多 4 次，间隔 300ms → 900ms × 3
+       每次调用 getUserPurchases 检查 isMember
+       → 已激活：toast "开通成功" → 回首页
+       → 未激活（超时）：toast "支付已完成，正在同步开通状态…" → 回首页
+       → 取消支付：toast "已取消支付"
+```
+### 3.2 发货通知回调
+微信平台在用户支付成功后异步调用 `payService` 云函数，事件类型 `xpay_goods_deliver_notify`。
+`exports.main` 入口检测到 `event.MsgType === "event"` 且事件名为 `xpay_goods_deliver_notify` 时进入 `handleVirtualPayDelivery`：
+1. 解析 `outTradeNo`（支持多种字段名兼容：`OutTradeNo`/`outTradeNo`/`out_trade_no`/嵌套 `OrderInfo`）
+2. 查询订单是否存在
+3. 解析 `attach` 字段（JSON 字符串，含 type/id/sourceKey/sourceTitle）
+4. 如果订单已是 `delivered`/`paid` 状态：直接授予权益（幂等），返回 `{ ErrCode: 0, ErrMsg: "success" }`
+5. 如果订单是 `pending`/`created` 状态：
+   - 更新订单为 `status: "delivered"`，写入 `paidAt`/`deliveredAt`/`transactionId`/`callbackPayload`
+   - 调用 `grantEntitlement` 授予权益
+   - 返回 `{ ErrCode: 0, ErrMsg: "success" }`
+### 3.3 grantEntitlement — 权益授予
+根据 `itemType` 将购买结果写入用户档案：
+- `itemType === "package"`：调用 `upsertPackageProfile(openid, itemId)`，在 `communication_user_profiles` 中将 `itemId` 加入 `unlockedPackages` 数组（`mergeUnlockedPackages` 用 Set 去重）
+- `itemType === "membership"`：调用 `upsertMembershipProfile(openid)`，在 `communication_user_profiles` 中设置 `membershipActive: true`、`activated: true`、`membershipName`、`membershipType`、`membershipProductCode`、`membershipPriceFen` 等字段
+两者都写入 `lastOrderNo` 和 `updatedAt`。`upsert` 方式为先 `get` 现有文档再用 `set` 全量覆盖（保留已有字段 + 覆盖目标字段）。
+---
+## 四、签名算法详解
+### 4.1 jscode2session 换取 session_key
+```
+GET https://api.weixin.qq.com/sns/jscode2session
+  ?appid={小程序APPID}
+  &secret={XPAY_APP_SECRET}
+  &js_code={前端wx.login()的code}
+  &grant_type=authorization_code
+```
+返回 `{ session_key, openid, ... }`。如果 `session_key` 不存在，解析 `errcode`/`errmsg` 并抛出错误。
+`appSecret` 从环境变量 `XPAY_APP_SECRET` 读取。`appid` 从 `cloud.getWXContext().APPID` 获取。
+### 4.2 signData 构造
+`createSignData` 函数构造一个 JSON 字符串：
+```json
+{
+  "offerId": "XPAY_OFFER_ID",
+  "buyQuantity": 1,
+  "env": 1,
+  "currencyType": "CNY",
+  "platform": "android",
+  "productId": "hot_topics_life",
+  "goodsPrice": 5900,
+  "outTradeNo": "HT1234567890123456",
+  "attach": "{\"type\":\"membership\",\"id\":\"\",\"sourceKey\":\"\",\"sourceTitle\":\"\"}"
+}
+```
+`attach` 字段是 JSON 字符串，由 `createAttach` 函数构造，含 `type`（itemType）、`id`（itemId）、`sourceKey`、`sourceTitle`。用于发货回调时识别商品类型。
+### 4.3 HMAC-SHA256 双签名
+两个签名都用 `crypto.createHmac("sha256", key).update(content, "utf8").digest("hex")`：
+**paySig**：用 AppKey 签名。`key = getAppKey(paymentEnv)`（沙箱用 `XPAY_SANDBOX_APP_KEY`，正式用 `XPAY_PROD_APP_KEY`）。`content = "requestVirtualPayment&" + signData`。
+**signature**：用 session_key 签名。`key = sessionKey`。`content = signData`。
+### 4.4 buildVirtualPayment 返回值
+```json
+{
+  "mode": "short_series_goods",
+  "signData": "{...}",
+  "paySig": "hex_string",
+  "signature": "hex_string"
+}
+```
+前端拿到这个对象后直接传给 `wx.requestVirtualPayment()`。
+---
+## 五、订单管理
+### 5.1 `communication_membership_orders` 集合
+尽管集合名叫 `membership_orders`，实际存储所有类型订单（会员 + 单包）。
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | = `outTradeNo`（订单号） |
+| `outTradeNo` | string | 订单号，`HT` + 时间戳 + 6 位随机数 |
+| `openid` | string | 用户 OPENID |
+| `productCode` | string | 商品代码：`hot_topics_lifetime`（会员）或 `topic_package`（单包） |
+| `productName` | string | 商品名称 |
+| `membershipType` | string | "lifetime"（会员）或 "package" |
+| `item_type` | string | "membership" 或 "package" |
+| `item_id` | string | 专题包 id（仅 package 类型有值） |
+| `productId` | string | 微信虚拟支付产品 id |
+| `goodsPrice` | number | 价格（分） |
+| `sourceKey` | string | 用户点击来源 key（话题 id 或专题包 id） |
+| `sourceTitle` | string | 用户点击来源标题 |
+| `paymentMode` | string | 固定 "virtual" |
+| `offerId` | string | XPAY Offer ID |
+| `xpayEnv` | number | 0 = 正式环境，1 = 沙箱环境 |
+| `status` | string | "pending" → "delivered" → "paid" |
+| `transactionId` | string | 微信交易号（回调时写入） |
+| `createdAt` | serverDate | 创建时间 |
+| `updatedAt` | serverDate | 更新时间 |
+| `paidAt` | serverDate | 支付时间（回调时写入） |
+| `deliveredAt` | serverDate | 发货时间（回调时写入） |
+| `callbackPayload` | object | 回调原始数据 |
+### 5.2 订单状态流转
+```
+pending → delivered → (前端轮询确认)
+```
+- `pending`：订单已创建，等待支付
+- `delivered`：收到微信发货通知，已授予权益
+- `closed`：待支付订单被关闭（用户重新发起支付时，旧 pending 订单会被 closePendingOrders 关闭）
+- `paid`：前端轮询确认已激活（此状态在前端展示，不在云函数写入）
+### 5.3 已购检测逻辑
+`createPurchaseOrder` 中的已购检测：
+1. 查 `communication_user_profiles`，如果 `membershipActive` 或 `activated` 为 true → 返回 `alreadyPurchased: true`（会员已购，无需再买）
+2. 会员类型：查 `communication_membership_orders` 中 `productCode = "hot_topics_lifetime"` 的订单，如果有 `delivered`/`paid` 状态的 → 补写 profile + 返回已是会员
+3. 单包类型：查 `profile.unlockedPackages` 数组是否已包含 `itemId` → 已单独购买过。再查订单中 `productCode = "topic_package"` 且 `item_id = itemId` 的 delivered 订单 → 补写 profile + 返回已购
+### 5.4 待支付订单清理
+`closePendingOrders`：用户可能有上次创建但未支付的 pending 订单。重新发起新订单前，将同商品的 pending 订单全部更新为 `status: "closed"`、`closeReason: "recreated_for_retry"`，避免订单积压。
+---
+## 六、getUserPurchases — 查询用户权益
+`getUserPurchases` 是前端最常调用的 payService 接口，被首页、我的页、开通页调用。
+响应：
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `success` | boolean | true |
+| `isMember` | boolean | 是否是会员（`profile.membershipActive` 或 `profile.activated`） |
+| `membershipName` | string | 会员名称（默认"沟通话题会员"） |
+| `membershipPriceFen` | number | 会员价格（5900） |
+| `packagePriceFen` | number | 单包价格（990） |
+| `unlockedPackages` | array | 已解锁的专题包 id 数组。会员返回全部 VALID_PACKAGE_IDS，非会员返回 profile.unlockedPackages |
+| `purchasedItems` | array | 购买记录列表，每条含 type/id/productId/outTradeNo/status |
+---
+## 七、前端支付流程（activation 页）
+### 7.1 版本检测
+`canUseVirtualPayment()`：获取 `wx.getSystemInfoSync().SDKVersion`，与 `"2.19.2"` 比较。低于此版本时弹窗"当前微信版本不支持，请将微信更新到支持虚拟支付的版本后再试"。
+### 7.2 PAYMENT_PRODUCT 配置
+```js
+const PAYMENT_PRODUCT = {
+  membership: {
+    itemType: "membership",
+    itemId: "",
+    productId: "hot_topics_life",
+    goodsPrice: 5900,
+  },
+  package: {
+    itemType: "package",
+    itemId: "",
+    productId: "topic_package",
+    goodsPrice: 990,
+  },
+};
+```
+### 7.3 startPurchase 流程
+1. 检查 `purchased` 状态 → 已购则直接回首页
+2. 检查 `paying` 状态 → 防重复点击
+3. 版本检测 → 不支持则弹窗
+4. 调用 `createPurchaseOrder`（传 env/itemType/itemId/productId/goodsPrice/sourceKey/sourceTitle）
+5. 如果返回 `alreadyPurchased` → 提示"你已经开通过了"→ 回首页
+6. `wx.login()` 获取 loginCode
+7. 调用 `createPaySign`（传 env/code/outTradeNo/itemType/itemId/productId/goodsPrice/sourceKey/sourceTitle）
+8. `wx.requestVirtualPayment(virtualPayment)` → 弹起支付
+9. `waitForMembershipActivated()` → 轮询 4 次
+10. 成功 → `setCachedMembership` 写本地缓存 → toast"开通成功"→ 回首页
+11. 超时 → toast"支付已完成，正在同步开通状态…"→ 回首页
+12. 取消 → toast"已取消支付"
+13. XPAY 配置错误 → `showModal` 阻断展示原始错误
+### 7.4 本地缓存
+`membership_access_cache`：支付成功后写入 `{ purchased: true, membershipName, updatedAt }`。首页和我的页可先读缓存再调 `getUserPurchases` 云函数。这避免了每次进入页面都发一次云函数请求。
+### 7.5 PAYMENT_ENV
+`PAYMENT_ENV = 1` 表示沙箱环境（测试用），`0` 表示正式环境。当前代码固定为 1（沙箱）。正式上线时改为 0。
+`normalizeEnv(value)` 函数：`Number(value) === 1 ? 1 : 0`。从 `event.env` 传入，前端固定传 `PAYMENT_ENV`。
+---
+## 八、checkMembership — 供其他云函数调用的接口
+`checkMembership` 是 `payService` 的一个 type，供其他云函数在需要判断会员状态时使用：
+请求：`{ type: "checkMembership", openid: "可选，不传则取调用者openid" }`
+响应：`{ success: true, isMember: true/false }`
+实现：查 `communication_user_profiles` 的 `membershipActive`/`activated` 字段。
+注意：当前 `topicData` 云函数没有调用 `checkMembership`，而是自己实现了 `isMemberOpenid` 函数直接查数据库。这是因为云函数间调用有性能开销，直接查库更快（60 秒缓存）。
+---
+## 九、错误处理
+### 9.1 前端错误分类
+| 错误类型 | 判断条件 | 处理方式 |
+|---|---|---|
+| 用户取消支付 | message 含 "cancel" 或 "取消" | toast "已取消支付" |
+| XPAY 配置错误 | message 含 "XPAY_"/"AppSecret"/"OfferID"/"offerId"/"productId"/"goodsPrice"/"appKey"/"jscode2session"/"session_key" | showModal 阻断展示原始错误 |
+| 其他错误 | — | toast "支付失败，请稍后重试" |
+### 9.2 云函数错误处理
+所有 action 都在 `try/catch` 中执行，返回 `{ success: false, message: error.message }`。`assertRuntimeConfig` 抛出的错误会被前端识别为 XPAY 配置错误并阻断展示。
+---
+## 十、商品配置与 SKU 说明
+本项目使用双 SKU 定价模型：
+- **会员**（`membership`）：5900 分（59 元），productId 为 `hot_topics_life`，永久解锁全部话题详细话术 + 全部沟通专题包
+- **单包**（`package`）：990 分（9.9 元），productId 为 `topic_package`，仅解锁指定专题包
+前端 `PAYMENT_PRODUCT` 配置同时包含两种商品。`startPurchase` 根据 URL 参数 `mode` 分流：`mode === "package"` 时走单包购买逻辑（`itemId` = URL 参数 `packageId`），默认走会员购买逻辑。
+`VALID_PACKAGE_IDS` 通过 `packageData` 云函数的 `validIds` action 动态获取（带 5 分钟缓存 + 兜底列表），`createPurchaseOrder` 在校验单包 `itemId` 时使用。兜底列表为全部 11 个包 ID。`purchaseType` 已废除，11 个包均支持单买，不需要额外校验。
+这些商品配置不影响本文档描述的签名算法和支付链路，只影响下单时的 SKU 选择和价格参数。
+---
+## 十一、payService/index.js 完整源码
+以下是 `cloudfunctions/payService/index.js` 的完整实现代码，重写项目时直接使用此代码作为 `payService` 云函数的源文件：
+```js
+const cloud = require("wx-server-sdk");
+const crypto = require("crypto");
+const https = require("https");
+cloud.init({
+  env: cloud.DYNAMIC_CURRENT_ENV,
+});
+const db = cloud.database();
+const PROFILE_COLLECTION = "communication_user_profiles";
+const ORDER_COLLECTION = "communication_membership_orders";
+// 会员：一次性 59 元，永久解锁全部话题 + 全部专题包
+const MEMBERSHIP_PRODUCT = {
+  code: "hot_topics_lifetime",
+  name: "沟通话题会员",
+  desc: "支付一次，永久解锁全部话题详细话术与全部沟通专题",
+  type: "lifetime",
+  itemType: "membership",
+  priceFen: 5900,
+};
+// 专题包：单个 9.9 元，仅解锁对应的一个专题包
+const PACKAGE_PRODUCT_TEMPLATE = {
+  code: "topic_package",
+  type: "package",
+  itemType: "package",
+  priceFen: 990,
+};
+const VALID_PACKAGE_IDS = ["bedtime", "kindergarten", "school"]; // 旧值，运行时由 getValidPackageIds() 动态覆盖
+const VIRTUAL_PAYMENT_MODE = "short_series_goods";
+const PAY_SIG_URI = "requestVirtualPayment";
+function getCallerIdentity() {
+  const wxContext = cloud.getWXContext() || {};
+  return {
+    openid: wxContext.FROM_OPENID || wxContext.OPENID || "",
+    appid: wxContext.APPID || wxContext.FROM_APPID || "",
+  };
+}
+function firstString(candidates) {
+  for (let index = 0; index < candidates.length; index += 1) {
+    const value = candidates[index];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return "";
+}
+function ensureCollection(name) {
+  return db.createCollection(name).catch((error) => {
+    const message = String(error && (error.errMsg || error.message || error));
+    if (!/exist|already|DATABASE_COLLECTION_EXIST/i.test(message)) {
+      throw error;
+    }
+  });
+}
+function normalizeEnv(value) {
+  return Number(value) === 1 ? 1 : 0;
+}
+function getConfig() {
+  return {
+    offerId: process.env.XPAY_OFFER_ID || "",
+    appSecret: process.env.XPAY_APP_SECRET || "",
+    sandboxAppKey: process.env.XPAY_SANDBOX_APP_KEY || "",
+    prodAppKey: process.env.XPAY_PROD_APP_KEY || "",
+  };
+}
+function getAppKey(paymentEnv) {
+  const config = getConfig();
+  return paymentEnv === 1 ? config.sandboxAppKey : config.prodAppKey;
+}
+function assertRuntimeConfig(paymentEnv) {
+  const config = getConfig();
+  if (!config.offerId) {
+    throw new Error("未配置 XPAY_OFFER_ID");
+  }
+  if (!config.appSecret) {
+    throw new Error("未配置 XPAY_APP_SECRET");
+  }
+  if (!getAppKey(paymentEnv)) {
+    throw new Error(paymentEnv === 1 ? "未配置 XPAY_SANDBOX_APP_KEY" : "未配置 XPAY_PROD_APP_KEY");
+  }
+}
+function requestJson(url) {
+  return new Promise((resolve, reject) => {
+    https.get(url, (response) => {
+      let raw = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        raw += chunk;
+      });
+      response.on("end", () => {
+        try {
+          resolve(JSON.parse(raw || "{}"));
+        } catch (error) {
+          reject(new Error(`微信接口返回的不是合法 JSON: ${raw}`));
+        }
+      });
+    }).on("error", reject);
+  });
+}
+async function getSessionKey({ appid, loginCode }) {
+  const { appSecret } = getConfig();
+  const url = `https://api.weixin.qq.com/sns/jscode2session?appid=${encodeURIComponent(appid)}&secret=${encodeURIComponent(appSecret)}&js_code=${encodeURIComponent(loginCode)}&grant_type=authorization_code`;
+  const result = await requestJson(url);
+  if (!result.session_key) {
+    const errorCode = result.errcode ? ` (${result.errcode})` : "";
+    const errorMessage = result.errmsg || "未知错误";
+    throw new Error(`jscode2session 获取 session_key 失败: ${errorMessage}${errorCode}`);
+  }
+  return result.session_key;
+}
+function createTradeNo() {
+  const timePart = Date.now();
+  const randomPart = `${Math.floor(Math.random() * 1000000)}`.padStart(6, "0");
+  return `HT${timePart}${randomPart}`;
+}
+function normalizeText(value) {
+  return typeof value === "string" ? value.trim() : "";
+}
+function normalizePriceFen(value) {
+  const price = Number(value);
+  if (!Number.isInteger(price) || price <= 0) {
+    throw new Error("goodsPrice 必须是正整数（单位：分）");
+  }
+  return price;
+}
+function createAttach({ itemType, itemId, sourceKey, sourceTitle }) {
+  return JSON.stringify({
+    type: itemType,
+    id: itemId || "",
+    sourceKey: sourceKey || "",
+    sourceTitle: sourceTitle || "",
+  });
+}
+function createSignData({
+  outTradeNo,
+  paymentEnv,
+  productId,
+  goodsPrice,
+  itemType,
+  itemId,
+  sourceKey,
+  sourceTitle,
+}) {
+  const config = getConfig();
+  return JSON.stringify({
+    offerId: config.offerId,
+    buyQuantity: 1,
+    env: paymentEnv,
+    currencyType: "CNY",
+    platform: "android",
+    productId,
+    goodsPrice,
+    outTradeNo,
+    attach: createAttach({ itemType, itemId, sourceKey, sourceTitle }),
+  });
+}
+function createHmacSha256(key, content) {
+  return crypto.createHmac("sha256", key).update(content, "utf8").digest("hex");
+}
+function buildVirtualPayment({ sessionKey, signData, paymentEnv }) {
+  const appKey = getAppKey(paymentEnv);
+  return {
+    mode: VIRTUAL_PAYMENT_MODE,
+    signData,
+    paySig: createHmacSha256(appKey, `${PAY_SIG_URI}&${signData}`),
+    signature: createHmacSha256(sessionKey, signData),
+  };
+}
+function buildPackageProduct(packageId) {
+  return {
+    ...PACKAGE_PRODUCT_TEMPLATE,
+    itemId: packageId,
+    name: `${packageId} 专题包`,
+  };
+}
+function isValidPackageId(packageId) {
+  return VALID_PACKAGE_IDS.indexOf(packageId) >= 0;
+}
+async function getProfile(openid) {
+  await ensureCollection(PROFILE_COLLECTION);
+  const profileDoc = await db.collection(PROFILE_COLLECTION).doc(openid).get().catch(() => null);
+  return profileDoc && profileDoc.data ? profileDoc.data : {};
+}
+function mergeUnlockedPackages(current = [], packageId) {
+  const set = new Set(Array.isArray(current) ? current : []);
+  if (packageId) {
+    set.add(packageId);
+  }
+  return Array.from(set);
+}
+async function upsertMembershipProfile(openid, extra = {}) {
+  const current = await getProfile(openid);
+  await db.collection(PROFILE_COLLECTION).doc(openid).set({
+    data: {
+      openid,
+      ...current,
+      membershipActive: true,
+      activated: true,
+      membershipName: MEMBERSHIP_PRODUCT.name,
+      activeName: MEMBERSHIP_PRODUCT.name,
+      membershipType: MEMBERSHIP_PRODUCT.type,
+      membershipProductCode: MEMBERSHIP_PRODUCT.code,
+      membershipPriceFen: MEMBERSHIP_PRODUCT.priceFen,
+      membershipPurchasedAt: current.membershipPurchasedAt || db.serverDate(),
+      updatedAt: db.serverDate(),
+      ...extra,
+    },
+  });
+}
+async function upsertPackageProfile(openid, packageId, extra = {}) {
+  const current = await getProfile(openid);
+  const unlockedPackages = mergeUnlockedPackages(current.unlockedPackages, packageId);
+  await db.collection(PROFILE_COLLECTION).doc(openid).set({
+    data: {
+      openid,
+      ...current,
+      unlockedPackages,
+      updatedAt: db.serverDate(),
+      ...extra,
+    },
+  });
+}
+function isPurchasedStatus(status) {
+  return status === "delivered" || status === "paid";
+}
+function isPendingStatus(status) {
+  return status === "pending" || status === "created";
+}
+async function closePendingOrders(orders = []) {
+  const pendingOrders = orders.filter((order) => isPendingStatus(order.status));
+  await Promise.all(
+    pendingOrders.map((order) => {
+      const docId = order.outTradeNo || order._id || "";
+      if (!docId) {
+        return Promise.resolve();
+      }
+      return db.collection(ORDER_COLLECTION).doc(docId).update({
+        data: {
+          status: "closed",
+          closeReason: "recreated_for_retry",
+          closedAt: db.serverDate(),
+          updatedAt: db.serverDate(),
+        },
+      }).catch((error) => {
+        console.warn("close pending order failed", docId, error);
+      });
+    })
+  );
+}
+async function listOrders(openid, productCode) {
+  await ensureCollection(ORDER_COLLECTION);
+  const where = productCode ? { openid, productCode } : { openid };
+  const response = await db.collection(ORDER_COLLECTION)
+    .where(where)
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+  return response.data || [];
+}
+async function listAllOrders(openid) {
+  return listOrders(openid);
+}
+async function createPurchaseOrder(event = {}) {
+  const { openid } = getCallerIdentity();
+  if (!openid) {
+    throw new Error("无法获取当前用户 OPENID");
+  }
+  const paymentEnv = normalizeEnv(event.env);
+  const itemType = normalizeText(event.itemType) || "membership";
+  const itemId = normalizeText(event.itemId);
+  const sourceKey = normalizeText(event.sourceKey);
+  const sourceTitle = normalizeText(event.sourceTitle);
+  let product;
+  if (itemType === "package") {
+    if (!isValidPackageId(itemId)) {
+      throw new Error("缺少或不支持的 itemId（专题包标识）");
+    }
+    product = buildPackageProduct(itemId);
+  } else if (itemType === "membership") {
+    product = MEMBERSHIP_PRODUCT;
+  } else {
+    throw new Error(`不支持的 itemType: ${itemType}`);
+  }
+  const productId = normalizeText(event.productId) || product.code;
+  const goodsPrice = event.goodsPrice !== undefined ? normalizePriceFen(event.goodsPrice) : product.priceFen;
+  assertRuntimeConfig(paymentEnv);
+  await ensureCollection(ORDER_COLLECTION);
+  const profile = await getProfile(openid);
+  const isMember = Boolean(profile.membershipActive || profile.activated);
+  // 会员自动解锁全部专题包：无论购买会员还是单个专题包，只要已是会员就直接视为已购买
+  if (isMember) {
+    return {
+      success: true,
+      alreadyPurchased: true,
+      purchased: true,
+      membershipName: profile.membershipName || MEMBERSHIP_PRODUCT.name,
+    };
+  }
+  // 购买会员本身
+  if (itemType === "membership") {
+    const orders = await listOrders(openid, MEMBERSHIP_PRODUCT.code);
+    const purchasedOrder = orders.find((order) => isPurchasedStatus(order.status));
+    if (purchasedOrder) {
+      await upsertMembershipProfile(openid, {
+        lastOrderNo: purchasedOrder.outTradeNo || purchasedOrder._id || "",
+      });
+      return {
+        success: true,
+        alreadyPurchased: true,
+        purchased: true,
+        membershipName: MEMBERSHIP_PRODUCT.name,
+      };
+    }
+    const pendingOrders = orders.filter((order) => isPendingStatus(order.status));
+    if (pendingOrders.length) {
+      await closePendingOrders(pendingOrders);
+    }
+  }
+  // 购买单个专题包：若该专题包已单独解锁过，直接返回已购买
+  if (itemType === "package") {
+    const unlockedPackages = Array.isArray(profile.unlockedPackages) ? profile.unlockedPackages : [];
+    if (unlockedPackages.indexOf(itemId) >= 0) {
+      return {
+        success: true,
+        alreadyPurchased: true,
+        purchased: true,
+        membershipName: profile.membershipName || "",
+      };
+    }
+    const orders = await listOrders(openid, product.code);
+    const purchasedOrder = orders.find(
+      (order) => isPurchasedStatus(order.status) && normalizeText(order.item_id || order.itemId) === itemId
+    );
+    if (purchasedOrder) {
+      await upsertPackageProfile(openid, itemId, {
+        lastOrderNo: purchasedOrder.outTradeNo || purchasedOrder._id || "",
+      });
+      return {
+        success: true,
+        alreadyPurchased: true,
+        purchased: true,
+      };
+    }
+    const pendingOrders = orders.filter(
+      (order) => isPendingStatus(order.status) && normalizeText(order.item_id || order.itemId) === itemId
+    );
+    if (pendingOrders.length) {
+      await closePendingOrders(pendingOrders);
+    }
+  }
+  const outTradeNo = createTradeNo();
+  const orderData = {
+    openid,
+    productCode: product.code,
+    productName: product.name,
+    membershipType: product.type,
+    item_type: itemType,
+    item_id: itemId,
+    productId,
+    goodsPrice,
+    sourceKey,
+    sourceTitle,
+    paymentMode: "virtual",
+    offerId: getConfig().offerId,
+    xpayEnv: paymentEnv,
+    status: "pending",
+    createdAt: db.serverDate(),
+    updatedAt: db.serverDate(),
+  };
+  await db.collection(ORDER_COLLECTION).doc(outTradeNo).set({
+    data: {
+      outTradeNo,
+      ...orderData,
+    },
+  });
+  return {
+    success: true,
+    outTradeNo,
+    order: {
+      outTradeNo,
+      ...orderData,
+    },
+  };
+}
+async function createPaySign(event = {}) {
+  const { openid, appid } = getCallerIdentity();
+  const paymentEnv = normalizeEnv(event.env);
+  const loginCode = firstString([event.code, event.loginCode]);
+  const outTradeNo = firstString([event.outTradeNo, event.out_trade_no]);
+  const productId = normalizeText(event.productId);
+  const itemType = normalizeText(event.itemType) || "membership";
+  const itemId = normalizeText(event.itemId);
+  const sourceKey = normalizeText(event.sourceKey);
+  const sourceTitle = normalizeText(event.sourceTitle);
+  const goodsPrice = normalizePriceFen(event.goodsPrice);
+  if (!openid) {
+    throw new Error("无法获取当前用户 OPENID");
+  }
+  if (!appid) {
+    throw new Error("无法获取当前小程序 APPID");
+  }
+  if (!loginCode) {
+    throw new Error("缺少 loginCode，请重新发起支付");
+  }
+  if (!outTradeNo) {
+    throw new Error("缺少订单号，请先创建待支付订单");
+  }
+  if (!productId) {
+    throw new Error("缺少 productId");
+  }
+  assertRuntimeConfig(paymentEnv);
+  await ensureCollection(ORDER_COLLECTION);
+  const orderDoc = await db.collection(ORDER_COLLECTION).doc(outTradeNo).get().catch(() => null);
+  if (!orderDoc || !orderDoc.data) {
+    throw new Error("订单不存在，请先创建待支付订单");
+  }
+  const order = orderDoc.data;
+  if (order.openid && order.openid !== openid) {
+    throw new Error("订单用户不匹配");
+  }
+  const sessionKey = await getSessionKey({ appid, loginCode });
+  const signData = createSignData({
+    outTradeNo,
+    paymentEnv,
+    productId,
+    goodsPrice,
+    itemType,
+    itemId,
+    sourceKey: sourceKey || order.sourceKey || "",
+    sourceTitle: sourceTitle || order.sourceTitle || "",
+  });
+  await db.collection(ORDER_COLLECTION).doc(outTradeNo).update({
+    data: {
+      productId,
+      goodsPrice,
+      item_type: itemType,
+      item_id: itemId,
+      sourceKey: sourceKey || order.sourceKey || "",
+      sourceTitle: sourceTitle || order.sourceTitle || "",
+      xpayEnv: paymentEnv,
+      updatedAt: db.serverDate(),
+    },
+  });
+  return {
+    success: true,
+    data: buildVirtualPayment({
+      sessionKey,
+      signData,
+      paymentEnv,
+    }),
+  };
+}
+async function getUserPurchases() {
+  const { openid } = getCallerIdentity();
+  if (!openid) {
+    throw new Error("无法获取当前用户 OPENID");
+  }
+  const profile = await getProfile(openid);
+  const orders = await listAllOrders(openid);
+  const purchasedOrders = orders.filter((order) => isPurchasedStatus(order.status));
+  const isMember = Boolean(profile.membershipActive || profile.activated);
+  // 会员自动解锁全部专题包：isMember 为 true 时，unlockedPackages 视为全部
+  const unlockedPackages = isMember ? VALID_PACKAGE_IDS.slice() : (Array.isArray(profile.unlockedPackages) ? profile.unlockedPackages : []);
+  return {
+    success: true,
+    isMember,
+    membershipName: profile.membershipName || MEMBERSHIP_PRODUCT.name,
+    membershipPriceFen: MEMBERSHIP_PRODUCT.priceFen,
+    packagePriceFen: PACKAGE_PRODUCT_TEMPLATE.priceFen,
+    unlockedPackages,
+    purchasedItems: purchasedOrders.map((order) => ({
+      type: order.item_type || order.itemType || "membership",
+      id: order.item_id || order.itemId || "",
+      productId: order.productId || "",
+      outTradeNo: order.outTradeNo || "",
+      status: order.status === "delivered" ? "paid" : order.status || "",
+    })),
+  };
+}
+function parseAttach(event = {}) {
+  const rawAttach = firstString([
+    event.Attach,
+    event.attach,
+    event.GoodsInfo && event.GoodsInfo.Attach,
+    event.GoodsInfo && event.GoodsInfo.attach,
+    event.goodsInfo && event.goodsInfo.attach,
+  ]);
+  if (!rawAttach) {
+    return {};
+  }
+  try {
+    return JSON.parse(rawAttach);
+  } catch (error) {
+    console.warn("parse attach failed", error);
+    return { rawAttach };
+  }
+}
+function resolveEchoString(event = {}) {
+  return firstString([
+    event.echostr,
+    event.echoStr,
+    event.Echostr,
+    event.query && event.query.echostr,
+    event.queryStringParameters && event.queryStringParameters.echostr,
+  ]);
+}
+function resolveEventName(event = {}) {
+  return firstString([
+    event.Event,
+    event.event,
+    event.eventName,
+    event.type,
+  ]);
+}
+function resolveOrderNo(event = {}) {
+  return firstString([
+    event.OutTradeNo,
+    event.outTradeNo,
+    event.out_trade_no,
+    event.OrderInfo && event.OrderInfo.OutTradeNo,
+    event.OrderInfo && event.OrderInfo.outTradeNo,
+    event.orderInfo && event.orderInfo.outTradeNo,
+    event.resource && event.resource.outTradeNo,
+  ]);
+}
+function resolveOpenid(event = {}) {
+  return firstString([
+    event.OpenId,
+    event.openId,
+    event.openid,
+    event.FromOpenId,
+  ]);
+}
+function resolveTransactionId(event = {}) {
+  return firstString([
+    event.TransactionId,
+    event.transactionId,
+    event.WeChatPayInfo && event.WeChatPayInfo.TransactionId,
+    event.WeChatPayInfo && event.WeChatPayInfo.transactionId,
+    event.wechatPayInfo && event.wechatPayInfo.transactionId,
+  ]);
+}
+async function handleVirtualPayDelivery(event = {}) {
+  const eventName = resolveEventName(event);
+  if (eventName && eventName !== "xpay_goods_deliver_notify") {
+    return { ErrCode: 0, ErrMsg: "success" };
+  }
+  const outTradeNo = resolveOrderNo(event);
+  if (!outTradeNo) {
+    throw new Error("支付发货通知缺少 outTradeNo");
+  }
+  await ensureCollection(ORDER_COLLECTION);
+  const orderDoc = await db.collection(ORDER_COLLECTION).doc(outTradeNo).get().catch(() => null);
+  const order = orderDoc && orderDoc.data ? orderDoc.data : {};
+  const goodsInfo = event.GoodsInfo || event.goodsInfo || {};
+  const attachData = parseAttach(event);
+  const openid = resolveOpenid(event) || order.openid || "";
+  const transactionId = resolveTransactionId(event);
+  const resolvedItemType = order.item_type || attachData.type || "membership";
+  const resolvedItemId = order.item_id || attachData.id || "";
+  if (orderDoc && orderDoc.data && isPurchasedStatus(order.status)) {
+    if (openid) {
+      await grantEntitlement(openid, resolvedItemType, resolvedItemId, outTradeNo);
+    }
+    return { ErrCode: 0, ErrMsg: "success" };
+  }
+  const orderData = {
+    outTradeNo,
+    openid,
+    productCode: order.productCode || (resolvedItemType === "package" ? PACKAGE_PRODUCT_TEMPLATE.code : MEMBERSHIP_PRODUCT.code),
+    productName: order.productName || (resolvedItemType === "package" ? `${resolvedItemId} 专题包` : MEMBERSHIP_PRODUCT.name),
+    membershipType: order.membershipType || (resolvedItemType === "package" ? PACKAGE_PRODUCT_TEMPLATE.type : MEMBERSHIP_PRODUCT.type),
+    item_type: resolvedItemType,
+    item_id: resolvedItemId,
+    productId: order.productId || goodsInfo.ProductId || "",
+    goodsPrice: order.goodsPrice || goodsInfo.ActualPrice || goodsInfo.OrigPrice || (resolvedItemType === "package" ? PACKAGE_PRODUCT_TEMPLATE.priceFen : MEMBERSHIP_PRODUCT.priceFen),
+    sourceKey: order.sourceKey || attachData.sourceKey || "",
+    sourceTitle: order.sourceTitle || attachData.sourceTitle || "",
+    status: "delivered",
+    payResult: "xpay_goods_deliver_notify",
+    transactionId: transactionId || order.transactionId || "",
+    callbackEvent: eventName || "xpay_goods_deliver_notify",
+    callbackPayload: event,
+    goods_info: goodsInfo || null,
+    paidAt: order.paidAt || db.serverDate(),
+    deliveredAt: db.serverDate(),
+    createdAt: order.createdAt || db.serverDate(),
+    updatedAt: db.serverDate(),
+  };
+  if (orderDoc && orderDoc.data) {
+    await db.collection(ORDER_COLLECTION).doc(outTradeNo).update({
+      data: orderData,
+    });
+  } else {
+    await db.collection(ORDER_COLLECTION).doc(outTradeNo).set({
+      data: orderData,
+    });
+  }
+  if (openid) {
+    await grantEntitlement(openid, resolvedItemType, resolvedItemId, outTradeNo, {
+      sourceKey: orderData.sourceKey,
+      sourceTitle: orderData.sourceTitle,
+    });
+  }
+  return { ErrCode: 0, ErrMsg: "success" };
+}
+// 根据商品类型将购买结果落到用户档案：会员=全局解锁；专题包=仅解锁对应 itemId
+async function grantEntitlement(openid, itemType, itemId, outTradeNo, extra = {}) {
+  if (itemType === "package" && isValidPackageId(itemId)) {
+    await upsertPackageProfile(openid, itemId, {
+      lastOrderNo: outTradeNo,
+      ...extra,
+    });
+    return;
+  }
+  await upsertMembershipProfile(openid, {
+    lastOrderNo: outTradeNo,
+    ...extra,
+  });
+}
+exports.main = async (event = {}) => {
+  const echoString = resolveEchoString(event);
+  if (echoString) {
+    return echoString;
+  }
+  try {
+    if (event.MsgType === "event" && resolveEventName(event) === "xpay_goods_deliver_notify") {
+      return await handleVirtualPayDelivery(event);
+    }
+    switch (event.type) {
+      case "createPurchaseOrder":
+        return await createPurchaseOrder(event);
+      case "createPaySign":
+        return await createPaySign(event);
+      case "getUserPurchases":
+        return await getUserPurchases();
+      case "checkMembership": {
+        // 供其他云函数在需要判断"当前用户是否会员"时使用
+        const { openid: targetOpenid } = getCallerIdentity();
+        const openid = normalizeText(event.openid) || targetOpenid;
+        if (!openid) {
+          return { success: false, message: "无法获取当前用户 OPENID" };
+        }
+        const profile = await getProfile(openid);
+        return {
+          success: true,
+          isMember: Boolean(profile.membershipActive || profile.activated),
+        };
+      }
+      default:
+        return { success: false, errMsg: `unknown type: ${event.type || ""}` };
+    }
+  } catch (error) {
+    console.error("payService failed", error);
+    return {
+      success: false,
+      message: error && (error.message || error.errMsg) ? error.message || error.errMsg : String(error),
+    };
+  }
+};
+```
+---
+## 十二、package.json
+```json
+{
+  "name": "payService",
+  "version": "1.0.0",
+  "description": "微信虚拟支付（XPAY）云函数",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
+```
+云函数仅需 `wx-server-sdk` 依赖，`crypto` 和 `https` 为 Node.js 内置模块，无需额外安装。部署前在云函数目录执行 `npm install`。

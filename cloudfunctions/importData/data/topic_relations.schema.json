@@ -1,0 +1,19 @@
+{
+  "collection": "topic_relations",
+  "label": "关联推荐关系",
+  "requiredFields": {
+    "_id": "string",
+    "topicId": "string",
+    "related": "array"
+  },
+  "arrayItemRequired": {
+    "related": [
+      "topicId",
+      "type",
+      "label"
+    ]
+  },
+  "uniqueFields": [
+    "_id"
+  ]
+}

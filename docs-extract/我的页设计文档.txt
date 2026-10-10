@@ -1,0 +1,191 @@
+# 我的页设计文档
+版本：v1.0　日期：2026-08-09
+本文档覆盖"我的"tab 下的三个页面：我的页（`pages/mine`）、收藏页（`pages/favorites`）、开通页（`pages/activation`）。这三个页面在功能上紧密关联——我的页是入口，收藏和开通都是从我的页或话题详情页跳转进入的子页面。同时覆盖 `userData` 云函数的收藏接口和 `payService` 云函数的支付接口。
+相关方案文档：《专题包功能设计与实现方案》描述了单包购买逻辑与 `activation` 页的双选项展示，《微信虚拟支付对接文档》描述了支付基础设施。
+---
+## 一、我的页（`pages/mine`）
+### 1.1 页面职责
+展示用户会员状态、资源入口、功能菜单。是用户管理个人权益和进入收藏/开通的入口。
+### 1.2 页面结构（从上到下）
+**Profile + 会员引导合并卡片**（hero-card）：分上下两层。
+上层（hero-top）展示用户信息：
+- 免费用户：浅棕渐变背景（`linear-gradient(135deg, #F5E6DC, #EDD0C8)`），圆形头像"M"（`linear-gradient(135deg, #E0A998, #C4956A)` 渐变背景 + 白字），昵称"成长守护者"，徽章"☁ 免费版"（半透明白底）
+- 会员用户：金色渐变背景（`linear-gradient(135deg, #C4956A, #A87D55)`），半透明白底头像"M"（`rgba(255,255,255,0.2)` + 白色边框），白色昵称，徽章"👑 沟通话题会员"（半透明白底）
+下层（hero-bottom）展示会员引导/状态：
+- 免费用户：深暖棕渐变背景（`linear-gradient(135deg, #C4956A, #A87D55)`），文案"解锁全部话题话术 + 沟通专题" + "¥59 终生会员，一次购买永久使用"，右侧白底圆角按钮"开通会员"
+- 会员用户：更深的棕色渐变（`linear-gradient(135deg, #B8854E, #9A7048)`），文案"已解锁全部话题话术 + 全部沟通专题" + 标签"✓ 终生版"
+**内容解锁进度**（progress-section）：白色卡片。左侧标题"内容解锁进度"，右侧分数"86 / 300"（免费）/ "300 / 300"（会员）。下方进度条：免费用户填充 29%，渐变色 `linear-gradient(90deg, #C4956A, #E0A998)`；会员用户填充 100%，绿色渐变 `linear-gradient(90deg, #6BBF7E, #3FA35C)`。底部提示文字"当前可查看 86 道话题，开通会员解锁全部 300 道"（免费）/ "已解锁全部话题与沟通专题"（会员）。已购单包的用户按实际解锁数动态显示，例如"已解锁 121 / 300"。
+**会员权益预览**（perks-card）：白色卡片。标题"会员专属资源" + 右侧"查看全部 ›"。下方 3 个权益项横排，每项含图标（36×36rpx 圆角方块，coral/blue/purple 三色背景）+ 名称 + 状态。免费用户显示"🔒 未解锁"，会员用户显示"✓ 已解锁"。
+**我的解锁**（unlocked-section）：仅在用户已购至少一个专题包时显示（会员用户不显示此区块，因为会员已全解锁，用列表页即可）。白色卡片，标题"我的解锁" + 右侧"全部专题 ›"。下方按**包**纵向列出已购项，每行包含：渐变色小方块（用该包的 `gradientFrom`/`gradientTo`）、包名、副信息"30章 · 35个实战场景"、右侧进度文案（"未开始" / "已读 12/30"）+ 箭头。点击跳转该包的 `package-detail`。
+**这里刻意按「包」组织，而不是按「话题」平铺。** 曾考虑做一个「解锁话题 70 道」的入口，点进去是一个话题列表页。否决原因是这个页面回答不了任何 `package-detail` 回答不了的问题——用户买的心智单位是「包」不是「70 道题」，而那 70 道题已经在各自包的目录里按部分编排好了，再打散重组一遍只会增加维护成本和选择困惑。判断标准是：**一个页面若不能回答其他页面回答不了的问题，就不该存在。**
+因此我的页只做「已购资产的摘要与跳转」，消费内容的动作全部收敛到 `package-detail`。
+**统计行**（stats-row）：3 个白色数字卡片横排，每个卡片含大字号数字 + 小字标签。三项分别为"已探索话题"、"已收藏"、"训练天数"。数据来自 `getUserPurchases` 返回的访问统计 + 收藏数 + 训练进度。
+**菜单列表**（menu-section）：白色卡片，4 行菜单项，每行含左侧圆角方块图标 + 标题 + 右侧箭头 `›`：
+| 菜单项 | 图标 | 图标色 | 标题 | 跳转 |
+|---|---|---|---|---|
+| 我的收藏 | ★ | coral `#E0A998` | 我的收藏 | 收藏页 |
+| 沟通专题 | 📦 | blue `#79ACD6` | 沟通专题 | 专题包列表页 |
+| 意见反馈 | 💬 | 金黄 `#D4A843` | 意见反馈 | toast / 反馈入口 |
+| 关于我们 | ℹ️ | purple `#986FC9` | 关于我们 | toast / 关于页 |
+**开发者工具入口**：仅非正式版显示（`envVersion !== 'release'`）。DEV 徽章 + 标题"开发者数据导入" + 副标题"导入 / 更新话题数据"。点击跳转 developer-import 页。
+### 1.3 数据加载
+`onShow` 时调用 `payService` 的 `getUserPurchases` action：
+- 传入 `{ type: "getUserPurchases", env: PAYMENT_ENV }`
+- 返回 `isMember`/`membershipName`/`purchased`/`purchasedItems` 等字段
+- 更新页面 `purchased`/`membershipName`/`membershipPriceText` 状态
+- 控制 hero-card 的免费/会员展示、进度条填充比例、权益预览的解锁状态
+统计数据来源：已探索话题数来自 `topicVisit` 的 `stats` action，已收藏数来自 `userData` 的 `favoriteIds` action，训练天数来自 `trainingService` 的 `getProgress` action。这三个请求可并行发出。
+### 1.4 会员卡片设计
+hero-card 的展示要点：
+- 免费用户下层展示"¥59 终生会员，一次购买永久使用"引导文案 + "开通会员"按钮
+- 会员用户下层展示"已解锁全部话题话术 + 全部沟通专题" + "✓ 终生版"标签，无按钮
+- 会员用户的上层背景从浅棕渐变切换为金色渐变（`#C4956A → #A87D55`），头像从渐变色变为半透明白底，徽章从"☁ 免费版"变为"👑 沟通话题会员"
+- 权益预览区从"🔒 未解锁"变为"✓ 已解锁"
+- 进度条从 30% 棕色渐变变为 100% 绿色渐变
+### 1.5 localProfile 缓存
+`localProfile` 机制：`getUserPurchases` 成功后将 `{ purchased, membershipName, updatedAt }` 存入 `wx.setStorageSync`。`onShow` 先读缓存渲染，再调云函数更新。即使云函数调用失败，用户也能看到上次的会员状态。
+---
+## 二、开通页（`pages/activation`）
+### 2.1 页面职责
+展示会员权益、处理支付流程、显示购买记录。用户从我的页、话题详情页或首页专题包入口跳转进入。
+### 2.2 页面结构（从上到下）
+**入口 Banner**：展示用户点击来源（`sourceTitle`），如"孩子不肯起床怎么办"。
+**权益说明卡片**：3 条权益描述，每条含编号（1/2/3 圆形标记）+ 权益文案。
+**价格卡片**：当前商品价格 + "终生购买"标签。
+- 双选项展示（从专题包入口进入时）：会员 59 元 / 单包 9.9 元。两个选项卡片左右或上下排列，选中态用 `#C4956A` 暖棕边框高亮 + 内部勾选标记，未选中态为灰色边框
+- 从我的页或话题详情页进入时：仅展示会员 59 元选项
+- `member_only` 类型已废除，11 个专题包全部支持单买，不再有仅会员可购的分支
+**支付按钮**：
+- 已开通："立即回首页查看"
+- 未开通："微信支付开通"
+**购买记录列表**：展示 `purchasedItems`，每条含商品名 + 订单号 + 支付状态（`✓` 已完成 / `…` 处理中）。
+### 2.3 入口模式
+`onLoad` 解析 URL 参数确定入口模式：
+| 来源 | URL 参数 | 展示 |
+|---|---|---|
+| 我的页 | 无特殊参数 | 默认会员开通页 |
+| 话题详情页 | `sourceKey` + `sourceTitle` | 显示话题来源 + 会员开通 |
+| 专题包入口 | `mode=package` + `packageId` + `priceFen` | 显示单包 9.9 元 + 会员 59 元双选项（专题包方案新增） |
+### 2.4 支付流程
+1. **版本检测**：`canUseVirtualPayment()` 检查 SDK 版本 ≥ 2.19.2，不支持则弹窗提示
+2. **创建订单**：调用 `payService` 的 `createPurchaseOrder`，传 env/itemType/itemId/productId/goodsPrice/sourceKey/sourceTitle
+3. **已购检测**：如返回 `alreadyPurchased`，提示已开通
+4. **获取 loginCode**：`wx.login()`
+5. **构造签名**：调用 `payService` 的 `createPaySign`，换取 session_key + 构造 signData + 双签名
+6. **调起支付**：`wx.requestVirtualPayment(virtualPayment)`
+7. **轮询确认**：`waitForMembershipActivated()` 最多 4 次（300ms → 900ms × 3），每次调 `getUserPurchases` 检查 `isMember`
+8. **成功**：`setCachedMembership` 写本地缓存 → toast"开通成功"→ 回首页
+9. **超时**：toast"支付已完成，正在同步开通状态…"→ 回首页
+10. **取消**：toast"已取消支付"
+### 2.5 PAYMENT_PRODUCT 配置
+```js
+const PAYMENT_PRODUCT = {
+  membership: { itemType: "membership", itemId: "", productId: "hot_topics_life", goodsPrice: 5900 },
+  package: { itemType: "package", itemId: "", productId: "topic_package", goodsPrice: 990 },
+};
+```
+`startPurchase` 按 `mode` 分流：`mode === "package"` 时用 `PAYMENT_PRODUCT.package`，`itemId` = URL 参数 `packageId`；默认走 `PAYMENT_PRODUCT.membership`。
+### 2.6 错误处理
+| 错误类型 | 判断 | 处理 |
+|---|---|---|
+| 用户取消 | message 含 "cancel" 或 "取消" | toast"已取消支付" |
+| XPAY 配置错误 | message 含 "XPAY_"/"AppSecret"/"OfferID" 等 | showModal 阻断展示原始错误 |
+| 其他 | — | toast"支付失败，请稍后重试" |
+### 2.7 本地缓存
+`membership_access_cache`：支付成功后写入 `{ purchased: true, membershipName, updatedAt }`。首页和我的页可先读缓存再调云函数更新。
+> 完整的支付链路、签名算法、订单管理详见《微信虚拟支付对接文档》。
+---
+## 三、收藏页（`pages/favorites`）
+### 3.1 页面职责
+展示用户收藏的话题列表，支持按二级分类（level2）筛选。从我的页"我的收藏"菜单进入。
+### 3.2 页面结构
+**统计卡片**：左侧"已收藏话题"标签 + 收藏数量（大字号 + "个话题"小字），右侧大星标。
+**分组 tab 栏**：横向滚动，每个 tab 显示分类名 + 数量。第一个 tab 固定为"全部"。tab 数据来自 `listFavorites` 返回的 `stats`，动态生成。选中态高亮。
+**收藏列表**：纵向排列的收藏卡片，结构与话题库的话题卡片一致：level1 标签 + scenario 标题 + 年龄标签 + level2 标签 + 取消收藏星标。
+### 3.3 数据加载
+`onLoad` 和 `onShow` 调用 `userData` 的 `listFavorites` action：
+- 返回 `favorites`（话题对象数组，已按 `createdAt` 倒序，每条含话题完整字段 + `favoriteAt`）
+- 返回 `total`（收藏总数）
+- 返回 `stats`（按 level2 分组的统计，如 `{ "日常沟通": 5, "情绪管理": 3 }`）
+- 从 `stats` 构建 tabs 数组，`visibleFavorites` 初始为全部
+**下拉刷新**：`onPullDownRefresh` 重新加载。
+### 3.4 tab 筛选
+`selectTab`：点击 tab 时更新 `activeTab`，`visibleFavorites` 筛选为 `favorites.filter(t => t.level2 === activeTab)`（"全部" tab 不筛选）。
+### 3.5 取消收藏
+`removeFavorite`：调用 `userData` 的 `toggleFavorite` action（注意是 toggle），成功后从 `favorites` 和 `visibleFavorites` 中移除该项，更新 `tabs` 的 count 和 `total`，toast"已取消"。
+### 3.6 跳转
+点击收藏卡片跳转话题详情页，URL 参数 `id` = 话题 `_id`。
+### 3.7 分组设计
+收藏页分组按 `level2` 二级分类实现：`listFavorites` 的 `stats` 按 `level2` 分组，`selectTab` 筛选为 `t.level2 === activeTab`（"全部" tab 不筛选）。`toggleFavorite` 写入时 `level2` 已冗余存储，无需改数据结构。
+---
+## 四、收藏功能 — 跨页面联动
+收藏状态在三个页面间存在，但没有全局状态管理，各页面独立查询。
+### 4.1 话题库页
+- `onReady` 时调用 `userData` 的 `favoriteIds` 获取全量收藏 ID 列表
+- `onShow` 时刷新收藏状态（`refreshFavoriteState`）
+- 用户收藏/取消收藏后立即刷新星标
+### 4.2 话题详情页
+- `loadTopic` 成功后调用 `favoriteIds` 查询当前话题收藏状态
+- 用户收藏/取消收藏后直接 `setData` 更新星标
+### 4.3 收藏页
+- `onLoad` 和 `onShow` 全量重新加载
+### 4.4 联动场景
+用户在任何页面收藏/取消收藏后，切到其他页面时 `onShow` 触发刷新。由于没有全局状态管理，状态同步依赖页面生命周期。用户体验上无明显延迟——切换页面时收藏状态已是最新。
+---
+## 五、userData 云函数 — 收藏接口
+`cloudfunctions/userData/index.js` 中的 3 个收藏 action：
+### 5.1 `favoriteIds` — 查询收藏 ID 列表
+请求：`{ action: "favoriteIds" }`
+响应：`{ success: true, favoriteIds: ["topicId1", "topicId2", ...] }`
+实现：查询 `communication_favorites` 集合 `where({ openid }).limit(100)`，返回 `topicId` 数组。
+### 5.2 `toggleFavorite` — 收藏/取消收藏
+请求：`{ action: "toggleFavorite", topicId: "话题_id" }`
+响应：`{ success: true, favorited: true/false }`
+实现：
+- 构造 `docId = openid + "_" + topicId`
+- 查询是否已存在：存在则 `remove()`（取消收藏），不存在则查话题详情取冗余字段后 `set()`（新建收藏）
+- 冗余字段：`ageGroup`/`level1`/`level2`/`scenario`
+### 5.3 `listFavorites` — 查询收藏列表
+请求：`{ action: "listFavorites" }`
+响应：`{ success: true, favorites: [...], total: N, stats: { "level2名": count, ... } }`
+实现：
+- 查询 `communication_favorites` 按 `createdAt` 倒序，最多 100 条
+- 提取 `topicIds`，查询 `communication_topics` 中 `status: "published"` 的话题
+- 内存 join：收藏记录 + 话题详情 → 完整话题对象 + `favoriteAt`
+- 按 `level2` 分组统计
+- 已删除/下架的话题静默过滤（收藏记录仍在但不显示）
+---
+## 六、communication_favorites 集合
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `_id` | string | 格式 `openid_topicId`，确保幂等 |
+| `openid` | string | 用户 OPENID |
+| `topicId` | string | 话题 `_id` |
+| `ageGroup` | string | 话题年龄段（冗余） |
+| `level1` | string | 话题一级分类（冗余） |
+| `level2` | string | 话题二级分类（冗余，用于分组 tab） |
+| `scenario` | string | 话题场景标题（冗余，列表直接展示） |
+| `createdAt` | serverDate | 收藏时间 |
+安全规则：用户只能读写 `openid` 等于自己的文档。
+---
+## 七、页面跳转关系
+```
+tabBar 我的 ──navigateTo──→ 开通页（无参数 / mode=membership）
+           ├──navigateTo──→ 收藏页
+           ├──navigateTo──→ 专题包列表页
+           └──navigateTo──→ 开发者导入页（仅非正式版）
+话题详情 ────navigateTo──→ 开通页（sourceKey + sourceTitle）
+首页专题包 ──navigateTo──→ 开通页（mode=package + packageId + priceFen）
+开通页 ─────switchTab────→ 首页（支付成功后）
+收藏页 ─────navigateTo──→ 话题详情页（id 参数）
+```
+---
+## 八、与其他模块的关联
+### 8.1 支付基础设施
+`payService` 云函数支持双 SKU（会员 + 单包）分支，`activation` 页提供双选项展示，`mine` 页展示会员卡片文案。这些构成本模块的付费地基。完整的支付链路、签名算法、订单管理详见《微信虚拟支付对接文档》。
+### 8.2 专题包
+专题包功能深化了 `activation` 的单包购买分支（`mode=package` 分流、`PAYMENT_PRODUCT.package` 配置、`waitForEntitlement` 泛化）。同时 `payService` 的 `VALID_PACKAGE_IDS` 支持动态读取（通过 `packageData` 云函数获取全部已发布专题包 ID）。详见《专题包功能设计与实现方案》。
+### 8.3 首页
+首页的训练功能会员校验复用 `getUserPurchases` 接口。首页专题包入口点击非会员跳开通页时传 `mode=package` 参数。
+### 8.4 话题库
+收藏功能横跨话题库页和收藏页。话题库页的收藏按钮和收藏页的取消收藏都调用同一个 `toggleFavorite` 接口。收藏状态在两个页面间通过 `onShow` 生命周期同步。

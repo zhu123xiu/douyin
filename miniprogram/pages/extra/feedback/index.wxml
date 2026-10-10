@@ -1,0 +1,77 @@
+<view class="page-shell feedback-page">
+  <view class="soft-card feedback-intro">
+    <view class="feedback-intro__mark">聊</view>
+    <view class="feedback-intro__copy">
+      <view class="feedback-intro__title">意见反馈</view>
+      <view class="feedback-intro__desc">告诉我们你的想法，一起把亲子沟通做得更好。</view>
+    </view>
+  </view>
+
+  <view class="soft-card feedback-form">
+    <view class="feedback-form__title">你想反馈什么？</view>
+    <view class="feedback-categories">
+      <view
+        tt:for="{{categories}}"
+        tt:key="value"
+        class="feedback-category {{selectedCategory === item.value ? 'feedback-category--active' : ''}}"
+        data-category="{{item.value}}"
+        bindtap="selectCategory"
+      >
+        {{item.label}}
+      </view>
+    </view>
+    <textarea
+      class="feedback-textarea"
+      maxlength="1000"
+      placeholder="写下你的建议、遇到的问题或想补充的内容"
+      value="{{content}}"
+      bindinput="onContentInput"
+    ></textarea>
+    <input
+      class="feedback-contact"
+      maxlength="100"
+      placeholder="联系方式（选填，方便我们回复你）"
+      value="{{contact}}"
+      bindinput="onContactInput"
+    />
+    <button class="primary-btn feedback-submit" bindtap="submit" loading="{{submitting}}" disabled="{{submitting}}">
+      提交反馈
+    </button>
+  </view>
+
+  <view class="section-heading feedback-history-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">我的反馈</view>
+    </view>
+    <view class="section-heading__action">{{feedbacks.length}} 条</view>
+  </view>
+
+  <view tt:if="{{loading}}" class="soft-card loading-card">
+    <view class="sk-line"></view>
+    <view class="sk-line loading-card__line"></view>
+  </view>
+  <view tt:elif="{{errorMessage}}" class="error-card">{{errorMessage}}</view>
+  <view tt:elif="{{!feedbacks.length}}" class="soft-card feedback-empty">
+    <view class="feedback-empty__icon">✦</view>
+    <view class="feedback-empty__title">还没有提交过反馈</view>
+    <view class="feedback-empty__desc">你的每一条建议，都会帮助我们持续改进。</view>
+  </view>
+  <view tt:else class="feedback-list">
+    <view tt:for="{{feedbacks}}" tt:key="_id" class="soft-card feedback-card">
+      <view class="feedback-card__top">
+        <view class="feedback-card__category">{{item.categoryLabel}}</view>
+        <view class="feedback-card__status feedback-card__status--{{item.status}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="feedback-card__time">{{item.createdAtText}}</view>
+      <view class="feedback-card__content">{{item.content}}</view>
+      <view tt:if="{{item.contact}}" class="feedback-card__contact">联系方式：{{item.contact}}</view>
+      <view tt:if="{{item.reply}}" class="feedback-card__reply">
+        <view class="feedback-card__reply-label">开发者回复</view>
+        <view class="feedback-card__reply-text">{{item.reply}}</view>
+        <view tt:if="{{item.repliedAtText}}" class="feedback-card__reply-time">{{item.repliedAtText}}</view>
+      </view>
+      <view tt:else class="feedback-card__pending">我们会尽快查看并回复。</view>
+    </view>
+  </view>
+</view>

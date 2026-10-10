@@ -1,0 +1,40 @@
+<view class="page-shell package-reader-page">
+  <view tt:if="{{loading}}" class="loading-state">正在加载章节内容...</view>
+  <view tt:elif="{{errorMessage}}" class="error-card">{{errorMessage}}</view>
+
+  <view tt:elif="{{chapter && packageData}}">
+    <view class="reader-eyebrow">{{packageData.title}} · 第{{chapter.chapterIndex}}章</view>
+    <view class="reader-title">{{chapter.title}}</view>
+
+    <view tt:if="{{chapter.locked}}" class="soft-card reader-lock-tip">
+      当前为试看内容，解锁后可查看完整章节。
+    </view>
+
+    <view class="soft-card reader-content">
+      <view tt:for="{{chapter.sections}}" tt:key="heading" class="reader-section">
+        <view class="reader-section__title">{{item.heading}}</view>
+        <view class="reader-section__content">{{item.content}}</view>
+      </view>
+
+      <button tt:if="{{chapter.locked}}" class="primary-btn reader-content__btn" bindtap="goPurchase">
+        解锁本专题
+      </button>
+    </view>
+
+    <view class="reader-footer">
+      <view
+        class="reader-footer__link {{activeChapterIndex <= 0 ? 'reader-footer__link--disabled' : ''}}"
+        bindtap="openPrev"
+      >
+        上一章
+      </view>
+      <view class="helper-text">{{activeChapterIndex + 1}} / {{packageData.chapterCount}}</view>
+      <view
+        class="reader-footer__link {{activeChapterIndex >= packageData.catalog.length - 1 ? 'reader-footer__link--disabled' : ''}}"
+        bindtap="openNext"
+      >
+        下一章
+      </view>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,144 @@
+.theme-list {
+  display: flex;
+  flex-direction: column;
+  gap: 20rpx;
+}
+
+.age-tabs {
+  width: 100%;
+  margin-bottom: 28rpx;
+}
+
+.age-tabs__row {
+  display: flex;
+  gap: 14rpx;
+  padding: 4rpx 0;
+}
+
+.age-tab {
+  flex-shrink: 0;
+  padding: 11rpx 24rpx;
+  border-radius: 24rpx;
+  background: #f5ede6;
+  color: #9b8d84;
+  font-size: 23rpx;
+}
+
+.age-tab--active {
+  background: #c4956a;
+  color: #ffffff;
+}
+
+.theme-plan-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 26rpx;
+  min-height: 234rpx;
+  padding: 34rpx 30rpx;
+}
+
+.theme-plan-card__icon {
+  flex: 0 0 102rpx;
+  width: 102rpx;
+  height: 102rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 42rpx;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.theme-plan-card__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.theme-plan-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.theme-plan-card__label {
+  color: #a0928c;
+  font-size: 22rpx;
+}
+
+.theme-plan-card__badge {
+  flex: 0 0 auto;
+  padding: 8rpx 16rpx;
+  border-radius: 18rpx;
+  background: #f6ede7;
+  color: #c08d69;
+  font-size: 22rpx;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.theme-plan-card__badge--done {
+  background: #edf9f1;
+  color: #32a96d;
+}
+
+.theme-plan-card__badge--current {
+  background: #eef5fb;
+  color: #6694bd;
+}
+
+.theme-plan-card__badge--locked {
+  background: #f4f0ed;
+  color: #aaa09a;
+}
+
+.theme-plan-card__title {
+  margin-top: 8rpx;
+  font-size: 36rpx;
+  font-weight: 800;
+  line-height: 1.35;
+}
+
+.theme-plan-card__subtitle {
+  margin-top: 8rpx;
+  color: #927f76;
+  font-size: 26rpx;
+  line-height: 1.55;
+}
+
+.theme-plan-card__hook {
+  margin-top: 8rpx;
+  color: #8a7a6e;
+  font-size: 24rpx;
+  line-height: 1.55;
+}
+
+.theme-plan-card__meta {
+  margin-top: 16rpx;
+  color: #a79b94;
+  font-size: 24rpx;
+  line-height: 1.4;
+}
+
+.theme-plan-card__meta--done {
+  color: #32a96d;
+}
+
+.theme-plan-card__meta--locked {
+  color: #aaa09a;
+}
+
+.theme-plan-card__btn {
+  width: 236rpx;
+  height: 72rpx;
+  margin-top: 22rpx;
+  border-radius: 18rpx;
+  background: #c4956a;
+  color: #ffffff;
+  font-size: 26rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

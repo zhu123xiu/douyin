@@ -1,0 +1,8 @@
+{
+    "setting": {
+        "urlCheck": false,
+        "bigPackageSizeSupport": false,
+        "compileHotReLoad": true
+    },
+    "condition": {}
+}

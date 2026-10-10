@@ -1,0 +1,114 @@
+<view class="page-shell library-page">
+  <view class="page-title">话题库</view>
+
+  <view class="search-box">
+    <text class="search-box__icon">⌕</text>
+    <input
+      class="search-box__input"
+      placeholder="搜索话题、场景、关键词"
+      value="{{keyword}}"
+      confirm-type="search"
+      bindinput="onKeywordInput"
+    />
+    <view tt:if="{{keyword}}" class="search-box__clear" bindtap="clearKeyword">×</view>
+  </view>
+
+  <scroll-view class="age-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="age-tabs__row">
+      <view
+        tt:for="{{ageGroups}}"
+        tt:key="ageGroup"
+        class="age-tab {{selectedAgeGroup === item.ageGroup ? 'age-tab--active' : ''}}"
+        data-age="{{item.ageGroup}}"
+        bindtap="selectAgeGroup"
+      >
+        {{item.label}}
+      </view>
+    </view>
+  </scroll-view>
+
+  <view class="mode-tabs">
+    <view
+      class="mode-tab {{contentMode === 'proactive' ? 'mode-tab--active' : ''}}"
+      data-mode="proactive"
+      bindtap="selectContentMode"
+    >
+      今天想聊点什么
+    </view>
+    <view
+      class="mode-tab {{contentMode === 'response' ? 'mode-tab--active' : ''}}"
+      data-mode="response"
+      bindtap="selectContentMode"
+    >
+      遇到这些情况怎么办
+    </view>
+  </view>
+
+  <scroll-view tt:if="{{level1Categories.length}}" class="level-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="level-tabs__row">
+      <view class="level-pill {{selectedLevel1 === '' ? 'level-pill--active' : ''}}" data-level1="" bindtap="selectLevel1">全部</view>
+      <view
+        tt:for="{{displayedCategories}}"
+        tt:key="*this"
+        class="level-pill {{selectedLevel1 === item ? 'level-pill--active' : ''}}"
+        data-level1="{{item}}"
+        bindtap="selectLevel1"
+      >
+        {{item}}
+      </view>
+      <view tt:if="{{hasMoreCategories}}" class="level-pill more-pill" bindtap="toggleCategories">
+        {{categoriesExpanded ? '收起' : '展开'}} <text class="more-pill__icon">{{categoriesExpanded ? '▴' : '▾'}}</text>
+      </view>
+    </view>
+  </scroll-view>
+  <view class="subheading subheading--list">
+    {{contentMode === 'proactive' ? '今天可以试试' : '问题回应'}}
+    <text class="subheading__count">{{total}} 条</text>
+  </view>
+
+  <view tt:if="{{loading && !topics.length}}" class="topic-list">
+    <view tt:for="{{skeletonItems}}" tt:key="*this" class="soft-card skeleton-card">
+      <view class="sk-line sk-line--lg"></view>
+      <view class="sk-line sk-line--md"></view>
+      <view class="sk-line sk-line--sm"></view>
+    </view>
+  </view>
+  <view tt:elif="{{errorMessage}}" class="error-card">{{errorMessage}}</view>
+  <view tt:elif="{{!topics.length}}" class="empty-state">没有找到相关话题，换个分类或关键词试试。</view>
+  <view tt:else class="topic-list">
+    <view
+      tt:for="{{topics}}"
+      tt:key="_id"
+      class="topic-card library-topic-card"
+      data-id="{{item._id}}"
+      bindtap="openTopic"
+    >
+      <view class="topic-card__top">
+        <text class="tag tag--secondary">{{item.contentType === 'proactive' ? item.moment : item.level1}}</text>
+        <text tt:if="{{item.freeToRead}}" class="free-pill">免费</text>
+        <text tt:elif="{{item.todayFree}}" class="today-pill">今日免费</text>
+        <text tt:elif="{{!item.unlocked}}" class="lock-pill">需解锁</text>
+      </view>
+      <view class="topic-card__title">{{item.displayTitle}}</view>
+      <view class="topic-card__preview">
+        {{item.contentType === 'proactive' ? item.sceneDescription : item.scenarioDesc}}
+      </view>
+      <view class="topic-card__footer">
+        <view class="topic-card__tags">
+          <text class="tag">{{item.ageLabel}}</text>
+          <text class="tag tag--soft">{{item.contentType === 'proactive' ? item.level1 : item.level2}}</text>
+          <text tt:if="{{item.abilityFocus}}" class="tag tag--ability">{{item.abilityFocus}}</text>
+        </view>
+        <view
+          class="star-btn star-btn--small"
+          data-id="{{item._id}}"
+          catchtap="toggleFavorite"
+        >
+          {{item.favorited ? '★' : '☆'}}
+        </view>
+      </view>
+    </view>
+    <view tt:if="{{loadingMore}}" class="loading-state">正在加载…</view>
+    <view tt:elif="{{!hasMore}}" class="empty-state">已经到底了</view>
+  </view>
+</view>

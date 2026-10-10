@@ -1,0 +1,102 @@
+<view class="page-shell training-page">
+  <view tt:if="{{loading}}" class="loading-state">正在加载…</view>
+  <view tt:elif="{{!plan}}" class="empty-state">暂无主题周</view>
+  <view tt:else>
+    <view class="soft-card training-hero">
+      <view class="training-hero__eyebrow">会员主题周{{locked ? ' · 预览 Day 1' : ' · 进度 ' + completedCount + ' / ' + totalDays}}</view>
+      <view class="training-hero__title">{{plan.title}}</view>
+      <view class="training-hero__subtitle">{{plan.subtitle}}</view>
+      <view tt:if="{{plan.ageLabel}}" class="training-hero__audience">适合人群：{{plan.ageLabel}}</view>
+      <view tt:if="{{plan.abilityFocus}}" class="training-hero__ability">
+        <text class="ability-badge">{{plan.abilityFocus}}</text>
+      </view>
+      <view tt:if="{{plan.valueHook}}" class="training-hero__hook">{{plan.valueHook}}</view>
+      <view class="progress-track">
+        <view class="progress-fill" style="width: {{completedCount / totalDays * 100}}%;"></view>
+      </view>
+    </view>
+
+    <view tt:if="{{locked}}" class="soft-card training-preview-tip">
+      <view class="training-preview-tip__title">可先体验 Day 1</view>
+      <view class="training-preview-tip__copy">共 7 天连续练习，完整内容需开通会员后解锁</view>
+    </view>
+
+    <view class="soft-card training-content">
+      <view class="training-day-list">
+        <view
+          tt:for="{{plan.days}}"
+          tt:key="day"
+          class="training-day {{item.done ? 'training-day--done' : ''}} {{selectedDay && selectedDay.day === item.day ? 'training-day--selected' : ''}}"
+          data-day="{{item.day}}"
+          bindtap="openDay"
+        >
+          <view class="training-day__num">{{item.day}}</view>
+          <view class="training-day__main">
+            <view class="training-day__title">{{item.title}}</view>
+            <view class="training-day__moment">{{item.moment}}</view>
+          </view>
+          <view class="training-day__status">{{item.done ? '✓' : '›'}}</view>
+        </view>
+      </view>
+
+      <view tt:if="{{selectedDay}}" class="task-detail">
+        <view class="task-detail__label">DAY {{selectedDay.day}} · 今天做什么</view>
+        <view tt:if="{{selectedDay.abilityFocus}}" class="task-detail__ability">
+          <text class="task-ability-pill">{{selectedDay.abilityFocus}}</text>
+        </view>
+        <view class="task-detail__title">{{selectedDay.title}}</view>
+        <view class="task-block">
+          <view class="task-block__label">适合时机</view>
+          <view class="task-block__text">{{selectedDay.moment}}</view>
+        </view>
+        <view class="task-block">
+          <view class="task-block__label">今天做什么</view>
+          <view class="task-block__text">{{selectedDay.action}}</view>
+        </view>
+        <view class="task-block task-block--green">
+          <view class="task-block__label">可以这样套着说</view>
+          <view class="task-block__text">{{selectedDay.scriptTemplate}}</view>
+        </view>
+        <view class="task-example">
+          <view class="task-example__label">参考说法</view>
+          <view class="task-example__text">{{selectedDay.scriptExample}}</view>
+        </view>
+        <view class="task-block">
+          <view class="task-block__label">错过主时机时这样做</view>
+          <view class="task-block__text">{{selectedDay.fallback}}</view>
+        </view>
+        <view class="task-block">
+          <view class="task-block__label">完成标准</view>
+          <view class="task-block__text">{{selectedDay.completionRule}}</view>
+        </view>
+        <view class="task-block task-block--quiet">
+          <view class="task-block__label">复盘</view>
+          <view class="task-block__text">{{selectedDay.reflection}}</view>
+        </view>
+        <view tt:if="{{selectedDay.reflectionExample}}" class="task-example task-example--quiet">
+          <view class="task-example__label">参考回应</view>
+          <view class="task-example__text">{{selectedDay.reflectionExample}}</view>
+        </view>
+        <view tt:if="{{selectedDay.growthSignal}}" class="task-block task-block--growth">
+          <view class="task-block__label">成长信号</view>
+          <view class="task-block__text">{{selectedDay.growthSignal}}</view>
+        </view>
+        <button tt:if="{{!locked && !selectedDay.done}}" class="primary-btn task-detail__done" bindtap="completeDay">完成今天的练习</button>
+        <view tt:if="{{!locked && selectedDay.done}}" class="task-detail__completed">今天已完成，继续保持这份连接。</view>
+      </view>
+
+      <view tt:if="{{locked && selectedDay}}" class="training-unlock-card">
+        <view class="training-unlock-card__title">你已经看完 Day 1</view>
+        <view class="training-unlock-card__copy">后面 6 天会继续带你把这一次沟通，<br/>从“知道怎么说”练成“遇到时能自然做到”。</view>
+        <button class="primary-btn" bindtap="openActivation">开通会员，解锁剩余 6 天</button>
+      </view>
+
+      <view tt:if="{{locked && !selectedDay}}" class="training-preview-error">
+        <view class="training-preview-error__title">Day 1 内容暂未加载</view>
+        <view class="training-preview-error__copy">请稍后重试，完整的首日体验内容不会占用会员权益。</view>
+        <button class="training-preview-error__retry" bindtap="retryLoad">重新加载</button>
+      </view>
+
+    </view>
+  </view>
+</view>

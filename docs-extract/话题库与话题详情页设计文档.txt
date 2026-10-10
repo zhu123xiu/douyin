@@ -1,0 +1,388 @@
+# 话题库与话题详情页设计文档
+版本：v1.0　日期：2026-08-09
+本文档描述话题库页面（`topic-library`）和话题详情页（`topic-detail`）的完整设计，以及 `topicData` 云函数的全部接口规范。包含一级分类标签栏筛选、话题详情页底部关联推荐、训练计划跳入自动标记等完整功能。重写项目时以此为话题库模块的实施依据。
+---
+## 一、话题库页面（`pages/topic-library`）
+### 1.1 页面职责
+tabBar 第二个页面，用户浏览和搜索全部话题的入口。支持三年龄段切换、关键词搜索、分页浏览、收藏操作。
+### 1.2 页面结构（从上到下）
+**页面标题**："话题库"，46rpx，800 字重。
+**搜索框**：圆角 28rpx 白色卡片，左侧放大镜图标，placeholder"搜索话题、场景或关键词"，右侧清除按钮（有关键词时显示）。300ms 防抖触发搜索，`confirm-type="search"` 支持软键盘搜索键直接触发。
+**年龄段卡片组**：三张并排卡片（`flex` 等分），每张高 278rpx，圆角 30rpx。每张卡片包含：
+- 年龄段表情图标（3-6 用 ☺，7-9 用 ⊙，10-12 用 ☆），74rpx 圆形背景
+- 年龄段标签（"3–6 岁"/"7–9 岁"/"10–12 岁"）
+- 副标题（"幼儿期"/"学龄期"/"青春期前"）
+- 话题数量（如"100 个话题"），圆角胶囊背景
+选中态：卡片边框变色（coral `#E0A998` / blue `#79ACD6` / purple `#986FC9`）。
+色彩体系（tone）贯穿全页：3-6 岁 = coral（`#E0A998`），7-9 岁 = blue（`#9AB8D6`/`#659ACC`），10-12 岁 = purple（`#B8A0D0`/`#8B67BD`）。
+**一级分类标签栏**：在年龄段卡片和话题列表之间，横向滚动的分类胶囊标签。包含"全部"标签 + 当前年龄段所有一级分类（由 `topicData` 的 `level1List` action 返回）。选中态为暖棕色 `#C4956A` 背景白字，未选中态为 `#f5ede6` 背景灰字 `#8a7d76`。字体 25rpx，内边距 `12rpx 28rpx`，圆角 28rpx，间距 16rpx。切换分类时重新加载话题列表，切换年龄段时重置分类选择并重新加载分类列表。
+**话题列表标题**："话题列表"，32rpx，700 字重。
+**话题列表**：纵向排列的话题卡片，卡片间距 18rpx。每张卡片：
+- level1 分类标签（21rpx，coral 色）
+- scenario 场景标题（29rpx，600 字重，1.45 行高）
+- 底部行：左侧标签组（年龄段标签 + level2 标签），右侧收藏星标按钮
+- **锁图标**：未解锁的付费话题在卡片右上角显示 🔒（或将收藏星标替换为锁图标），已解锁和免费话题不显示
+卡片配色随选中年龄段变化（coral/blue/purple 三套 .topic-card 样式）。
+### 1.2.1 列表项锁态与权限判定
+v1.0 的列表卡片**没有锁图标这个元素**，付费话题与免费话题在列表里看起来完全一样，用户点进去才发现是锁的。引入专题包解锁话题后，这个问题会放大——买了 emotion 包的用户无法在列表里区分哪些题已经属于自己。
+`list` action 需要为每条话题返回一个 `unlocked` 布尔字段，判定链为：`topic.isFree || membershipActive || unlockedTopicIds.includes(topic._id)`。
+实现上**不要逐条跨表查询**。云函数入口处一次性读取用户档案拿到 `membershipActive` 和 `unlockedTopicIds`（该字段是购买时已算好的冗余缓存，详见专题包方案 2.5 节），转成 `Set` 后在内存内遍历当页 20 条打标记。成本是一次额外的档案读取，可忽略。
+**锁态点击行为**：未解锁话题仍可点击进入详情页（看到裁剪后的预览 + 购买引导），不在列表页拦截。列表页直接弹购买弹窗会打断浏览节奏。
+**锁图标必须准确。** 宁可不做，不可做错——已购用户看到自己有权限的题还挂着锁，会以为没买到，这比没有锁图标更伤。因此不采用「列表页统一显示锁、详情页再判定」的兜底方案。
+### 1.3 数据加载
+**年龄段话题数量**：`onLoad` 时调用 `topicData` 的 `counts` action 获取 3 个年龄段各多少条已发布话题。同时读取本地缓存 `topic_counts_cache`（TTL 24 小时），先渲染缓存再静默更新。下拉刷新时同时刷新数量。
+**一级分类列表**：`onLoad` 时调用 `topicData` 的 `level1List` action 获取当前年龄段的一级分类。切换年龄段时重新加载分类列表并重置 `selectedLevel1` 为""（全部）。
+**话题列表**：`onLoad` 时首次加载（reset=true）。分页参数 `PAGE_SIZE=20`，`onReachBottom` 触发下一页加载。请求参数：`action: "list"`、`ageGroup`、`keyword`（可为空）、`level1`（可为空）、`skip`、`limit`。选择分类标签时重新加载列表并传入 `level1` 参数。
+**请求竞态控制**：用 `_listRequestId` 自增计数器，每次发请求递增，响应回来时比对 requestId，不匹配则丢弃。防止快速切换年龄段或频繁搜索时旧响应覆盖新数据。
+**搜素逻辑**：`onKeywordInput` 中 300ms 防抖（`_searchTimer`），清除搜索时取消防抖并重新加载列表。搜索时清空列表从头加载。切换年龄段时也取消搜索防抖。
+### 1.4 收藏交互
+**加载收藏 ID 列表**：`onReady` 时调用 `userData` 的 `favoriteIds` action 获取用户所有收藏的 topicId 数组，用 `decorateTopics` 给每条话题打上 `favorited` 布尔标记。`onShow` 时如果有已加载的话题列表则刷新收藏状态。
+**收藏/取消收藏**：列表项右下角星标按钮使用 `catchtap`（阻止冒泡，不触发卡片点击），调用 `userData` 的 `toggleFavorite` action，成功后 toast 提示"已收藏"/"已取消"并刷新收藏状态。收藏状态用 `★`（active 黄色 `#ffab00`）和 `☆`（未收藏）区分。
+### 1.5 三态展示
+**加载中**：首次加载时显示 5 个骨架屏卡片（`skeletonItems: [1,2,3,4,5]`），每张骨架卡片含三条灰度渐变动画条（30%/85%/55% 宽度，`@keyframes sk` 1.4s 无限循环）。翻页加载时底部显示"正在加载…"。
+**空状态**：无搜索结果时显示"没有找到相关话题，试试更简短的关键词，或搜索标签、场景"。
+**到底了**：`hasMore` 为 false 时底部显示"已经到底了"。
+**错误状态**：加载失败显示 `error-card`（珊瑚色背景 `#fff0e8`），提示"话题数据读取失败，请先上传并部署 topicData 云函数。"
+### 1.6 下拉刷新
+`onPullDownRefresh` 同时刷新年龄段数量和话题列表（`Promise.all`），完成后 `wx.stopPullDownRefresh()`。
+### 1.7 跳转
+点击话题卡片调用 `openTopic`，`wx.navigateTo` 跳转到话题详情页，URL 参数 `id` = 话题 `_id`（encodeURIComponent 编码）。
+### 1.8 一级分类标签栏核心代码
+```js
+// data 字段
+// level1Categories: []   — 当前年龄段的一级分类列表
+// selectedLevel1: ""     — 选中的一级分类，空串表示"全部"
+// 加载分类列表
+loadLevel1Categories(ageGroup) {
+  cloud.callFunction({
+    name: "topicData",
+    data: { action: "level1List", ageGroup },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (result.success) {
+        this.setData({ level1Categories: result.categories || [] });
+      }
+    })
+    .catch((error) => {
+      console.warn("load level1 categories failed", error);
+    });
+},
+// 选择分类标签
+selectLevel1(event) {
+  const level1 = event.currentTarget.dataset.level1;
+  this.setData({
+    selectedLevel1: level1 === this.data.selectedLevel1 ? "" : level1,
+    topics: [],
+    hasMore: true,
+  });
+  this.loadTopics(true);
+},
+```
+WXML 模板（插入在 `age-grid` 和 `list-heading` 之间）：
+```xml
+<scroll-view wx:if="{{level1Categories.length}}" class="level1-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+  <view class="level1-row">
+    <view
+      class="level1-pill {{selectedLevel1 === '' ? 'active' : ''}}"
+      data-level1=""
+      bindtap="selectLevel1"
+    >全部</view>
+    <view
+      wx:for="{{level1Categories}}"
+      wx:key="*this"
+      class="level1-pill {{selectedLevel1 === item ? 'active' : ''}}"
+      data-level1="{{item}}"
+      bindtap="selectLevel1"
+    >{{item}}</view>
+  </view>
+</scroll-view>
+```
+WXSS 样式：
+```css
+.level1-tabs { width: 100%; margin: 20rpx 0; }
+.level1-row { display: flex; gap: 16rpx; padding: 4rpx; }
+.level1-pill {
+  flex-shrink: 0;
+  font-size: 25rpx;
+  padding: 12rpx 28rpx;
+  border-radius: 28rpx;
+  background: #f5ede6;
+  color: #8a7d76;
+  transition: all 0.2s ease;
+}
+.level1-pill.active { background: #C4956A; color: #fff; }
+```
+---
+## 二、话题详情页（`pages/topic-detail`）
+### 2.1 页面职责
+展示单条话题的完整内容（场景描述、错误示范、正确示范、专家贴士），处理付费锁态和会员引导，记录用户访问行为。
+### 2.2 页面结构（从上到下）
+**话题头部**：
+- 标签行：年龄段标签（如"3-6 岁"）+ level2 二级分类标签（secondary 样式）
+- 收藏按钮：右上角星标，与话题库页相同的 toggle 逻辑
+- 场景标题：`scenario` 字段，大字号
+**场景描述卡片**（`soft-card`）：标签"▣ 场景描述" + `scenarioDesc` 文本。
+**错误回答区块**：
+- 区块标题："× 错误回答"，右侧标注"共 N 个常见误区"
+- N 张错误示范卡片，每张含：序号（红色 wrong 样式）+ `title` + `content` + 分析块（"为什么这是错的？" + `analysis`）
+- **默认折叠**：只展开第 1 张卡片，其余 N-1 张收起，列表底部显示虚线描边的展开按钮"查看另外 N-1 个误区"（`expand-btn`）。点击后一次性展开全部，按钮消失（单向展开，不支持再收起）。
+折叠的原因：实际数据每题固定 3 错 + 3 对，6 张卡片全展开后页面长度超过 4000rpx，用户需要大量滚动才能触及"正确回答"。而用户的真实心智是"我该怎么说"，错误示范是佐证而非主菜，因此压缩错误区、保留正确区全展开。
+设计稿以真实数据 `ph_7_9_001`（写作业拖拉）渲染，两态各一份：`docs/ui-mockups/topic_detail.html`（默认折叠态，390×1827pt）和 `docs/ui-mockups/topic_detail_expanded.html`（误区展开态，390×2209pt）。折叠使首屏到"正确回答"的距离缩短约 380pt，接近一屏。
+**正确回答区块**：
+- 区块标题："✓ 正确回答"，右侧标注"共 N 个推荐做法"
+- N 张正确示范卡片，每张含：序号（绿色 right 样式）+ `title` + `content` + 分析块（"为什么这样做是对的？" + `analysis`）
+- **全部展开**，不做折叠。这是用户来看这页的目的，不应增加任何点击成本。
+**专家小贴士卡片**：标签"● 专家小贴士" + `tips` 文本。
+**归属提示条**：在专家贴士之后、相关推荐之前，显示一条「本话题收录于《XXX》」，右侧带 `›` 箭头，点击跳转对应专题包详情页。样式上用淡色卡片（背景 `#faf6f2`、描边 `#f0e8e0`），弱于主体内容但可点击。
+这条提示的作用是把话题库变成专题包的引流入口。用户从话题库进来读完一道题觉得有用，能顺势发现「原来还有一整个包在讲这个」，形成从单点到系统的转化。数据来源是反查各包的 `partTopics`，找到第一个包含当前 `topicId` 的包（一题可属多包时取 `sortOrder` 最小的）。若未被任何包收录则不显示该条。
+**锁定态下的购买引导**：`locked` 为 true 时，引导文案不能只写「开通会员查看」，而要给出全部路径：「该内容收录于《情绪火山》¥9.9，或开通会员 ¥59 解锁全部」。展示更便宜的选项反而降低决策门槛，是转化机会而非损失。
+**相关话题推荐区域**：在专家小贴士之后，横向滚动的关联话题卡片。每张卡片宽 400rpx，圆角 20rpx，`#faf6f2` 背景带 `#f0e8e0` 描边。展示关联话题的 `scenario`（最多 2 行）+ 关联类型标签（`same_category` 珊瑚色 / `cross_category` 蓝色 / `theme_chain` 绿色）。点击跳转对应话题详情页。数据来源：`trainingService` 的 `getRelatedTopics` action，静默加载，加载失败不影响主体功能。
+### 2.3 数据加载
+`onLoad` 时解析 URL 参数 `id`（decodeURIComponent），调用 `topicData` 的 `detail` action，传 `{ action: "detail", id }`。同时解析可选参数 `fromTraining`（训练计划 ID）和 `day`（天数），如果存在则表明用户从训练计划页跳入。`onLoad` 还调用 `loadRelatedTopics(id)` 加载底部关联推荐。
+返回值包含 `topic`（话题对象）和 `locked`（布尔值，是否被锁定）。
+**训练进度自动标记**：如果 `fromTraining` 和 `day` 参数存在，`onShow` 时调用 `trainingService` 的 `completeDay` action 自动标记当天训练完成。使用实例级标记变量 `_dayMarked` 防止 `onShow` 多次触发导致重复标记。
+### 2.4 付费锁态处理
+**判定链已从二元扩展为三元。** v1.0 是 `topic.isFree || isMember`，买了专题包完全不影响话题解锁。现在是 `topic.isFree || membershipActive || unlockedTopicIds.includes(topic._id)`，三者任一成立即可读。`detail` action 需要在原有的会员查询之外，一并读取用户档案的 `unlockedTopicIds` 字段。
+`locked` 为 true 时，`topic` 对象已被 `toPreviewTopic` 裁剪——`wrongScripts`、`rightScripts`、`tips` 字段被移除，只保留 `scenario`、`scenarioDesc`、`tags`、`ageGroup`、`level1`、`level2` 等预览字段。
+页面渲染时对三个区块分别用 `wx:if` 显式判空：错误回答区和正确回答区判 `topic.xxxScripts.length`，贴士卡判 `topic.tips`。**这里不能依赖"`wx:for` 遍历空数组自动隐藏"**——`wx:for` 确实不会渲染卡片，但区块标题（含"共 N 个"计数）和展开按钮是 `wx:for` 之外的独立节点，不加 `wx:if` 会导致锁定态下出现"× 错误回答 共 个常见误区"这样的空标题。
+**解锁刷新**：`onShow` 时如果 `this.data.locked` 为 true，重新调用 `loadTopic` 拉取详情。用户从开通页支付成功后返回时自动刷新，付费内容立即展示。这个设计的原理是：用户看到锁定内容后点击"开通"跳转 activation 页，支付成功后 `navigateBack` 回到详情页，`onShow` 检测到 locked 状态重新拉取（此时 payService 已更新会员状态，topicData 返回完整内容）。
+**开通引导**：locked 状态下页面应有"开通会员查看完整内容"的引导入口（当前代码中 `goActivate` 方法已实现跳转，传 `sourceKey` = topic._id、`sourceTitle` = topic.scenario）。
+### 2.5 收藏交互
+与话题库页相同的逻辑：`loadFavoriteState` 调用 `userData` 的 `favoriteIds` 查询收藏状态，`toggleFavorite` 调用 `toggleFavorite` action 切换收藏。收藏成功后直接 `setData` 更新 `favorited` 字段，无需重新拉取列表。
+### 2.6 访问记录上报
+`loadTopic` 成功后静默调用 `topicVisit` 的 `record` action，传 `{ action: "record", topicId }`。不等待返回、不处理错误（`.catch` 只打日志）。如果 `topicVisit` 云函数未部署不影响主流程。
+### 2.7 三态展示
+**加载中**："正在加载…"。**错误**：`error-card` 红色提示，提示部署 topicData 云函数。**未找到**："没有找到该话题"。
+### 2.8 URL 参数
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `id` | 是 | 话题 `_id`，encodeURIComponent 编码 |
+| `fromTraining` | 否 | 训练计划 ID，从训练计划页跳入时携带，用于自动标记当天完成 |
+| `day` | 否 | 训练天数，从训练计划页跳入时携带 |
+### 2.9 相关话题推荐与训练进度标记核心代码
+```js
+// data 字段
+// relatedTopics: []   — 关联推荐列表
+// fromTraining: ""    — 训练计划 ID
+// trainingDay: 0      — 训练天数
+// onLoad 中记录来源参数并加载关联推荐
+onLoad(options) {
+  const id = decodeURIComponent(options.id || "");
+  if (!id) {
+    this.setData({ loading: false, errorMessage: "缺少话题 ID" });
+    return;
+  }
+  this._topicId = id;
+  this.loadTopic(id);
+  this.setData({
+    fromTraining: decodeURIComponent(options.fromTraining || ""),
+    trainingDay: parseInt(options.day || "0", 10),
+  });
+  this.loadRelatedTopics(id);
+}
+// onShow 中自动标记训练当天完成
+onShow() {
+  if (this._topicId && this.data.locked) {
+    this.loadTopic(this._topicId);
+  }
+  if (this.data.fromTraining && this.data.trainingDay && !this._dayMarked) {
+    this._dayMarked = true;
+    cloud.callFunction({
+      name: "trainingService",
+      data: {
+        action: "completeDay",
+        planId: this.data.fromTraining,
+        day: this.data.trainingDay,
+      },
+    }).catch((error) => {
+      console.warn("mark day complete failed", error);
+    });
+  }
+}
+// 加载关联推荐（静默失败）
+loadRelatedTopics(topicId) {
+  cloud.callFunction({
+    name: "trainingService",
+    data: { action: "getRelatedTopics", topicId },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (result.success && result.related) {
+        this.setData({ relatedTopics: result.related });
+      }
+    })
+    .catch((error) => {
+      console.warn("load related topics failed", error);
+    });
+}
+// 点击关联话题跳转
+openRelatedTopic(event) {
+  const topicId = event.currentTarget.dataset.id;
+  wx.navigateTo({
+    url: `/pages/topic-detail/index?id=${encodeURIComponent(topicId)}`,
+  });
+}
+```
+底部关联推荐区域 WXML：
+```xml
+<view wx:if="{{relatedTopics.length}}" class="related-section">
+  <view class="related-title">相关话题</view>
+  <scroll-view class="related-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="related-row">
+      <view
+        wx:for="{{relatedTopics}}"
+        wx:key="topicId"
+        class="related-card"
+        data-id="{{item.topicId}}"
+        bindtap="openRelatedTopic"
+      >
+        <view class="related-scenario">{{item.scenario}}</view>
+        <view class="related-label {{item.type}}">{{item.label}}</view>
+      </view>
+    </view>
+  </scroll-view>
+</view>
+```
+关联推荐 WXSS：
+```css
+.related-section { margin-top: 32rpx; }
+.related-title { font-size: 28rpx; font-weight: 700; color: #6b5d54; margin-bottom: 20rpx; }
+.related-scroll { width: 100%; }
+.related-row { display: flex; gap: 20rpx; padding: 4rpx; }
+.related-card {
+  flex-shrink: 0; width: 400rpx; border-radius: 20rpx;
+  padding: 24rpx 28rpx; background: #faf6f2; border: 2rpx solid #f0e8e0;
+}
+.related-scenario {
+  font-size: 26rpx; line-height: 1.4; color: #30231e;
+  display: -webkit-box; -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2; overflow: hidden;
+}
+.related-label {
+  margin-top: 14rpx; font-size: 21rpx; padding: 4rpx 16rpx;
+  border-radius: 14rpx; display: inline-block;
+}
+.related-label.same_category { background: rgba(255,143,120,0.12); color: #e88872; }
+.related-label.cross_category { background: rgba(116,158,221,0.12); color: #4a7ab5; }
+.related-label.theme_chain { background: rgba(76,175,80,0.12); color: #4caf50; }
+```
+---
+## 三、topicData 云函数接口规范
+### 3.1 总览
+`cloudfunctions/topicData/index.js`，集合 `communication_topics`，5 个 action。
+### 3.2 `counts` action
+查询 3 个年龄段各有多少条已发布话题。
+请求：`{ action: "counts" }`
+响应：`{ success: true, counts: { "3-6": 100, "7-9": 100, "10-12": 100 } }`
+实现：并发查询 3 个 `ageGroup` 的 `where({ status: "published", ageGroup }).count()`。无缓存（每次实时查询）。
+### 3.3 `list` action
+分页查询话题列表，支持关键词搜索和 level1 筛选。
+请求：
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `ageGroup` | string | 是 | "3-6" / "7-9" / "10-12"，默认 "3-6" |
+| `keyword` | string | 否 | 关键词，搜索 scenario/scenarioDesc/level1/level2/tags 五字段 |
+| `skip` | number | 否 | 跳过条数，默认 0 |
+| `limit` | number | 否 | 每页条数，默认 20，上限 20 |
+| `level1` | string | 否 | 一级分类筛选，传入时按该分类过滤话题 |
+响应：
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `success` | boolean | true |
+| `topics` | array | 话题数组，每条含 `_id`/`level1`/`scenario`/`level2`/`ageGroup`/`sortOrder`/`isFree`/`locked` |
+| `hasMore` | boolean | 是否还有更多 |
+`locked` 字段逻辑：`!topic.isFree && !isMember`。内部调用 `isMemberOpenid(openid)` 查询 `communication_user_profiles` 的 `membershipActive`/`activated` 字段，60 秒内存缓存。
+`field` 投影：只取 `level1`/`scenario`/`level2`/`ageGroup`/`sortOrder`/`isFree`，不返回 `wrongScripts`/`rightScripts`/`tips` 等大字段。
+level1 筛选实现：如果传入了 `level1` 参数，用 `Object.assign({}, baseWhere, { level1 })` 平面合并构建 `where`，而非 `_.and` 命令组合。
+搜索实现：关键词做 `escapeRegExp` 转义后构造 `db.RegExp`，用 `_.or` 匹配 5 个字段，再与基础 `where`（已含 level1 条件）用 `_.and` 组合。
+```js
+async function getList(event) {
+  // ... 参数解析
+  const level1 = String(event.level1 || "").trim();
+  const baseWhere = getPublicWhere({ ageGroup });
+  let where = level1 ? Object.assign({}, baseWhere, { level1 }) : baseWhere;
+  if (keyword) {
+    const pattern = escapeRegExp(keyword);
+    const reg = db.RegExp({ regexp: pattern, options: "i" });
+    where = _.and([
+      where,
+      _.or([
+        { scenario: reg },
+        { scenarioDesc: reg },
+        { level1: reg },
+        { level2: reg },
+        { tags: reg },
+      ]),
+    ]);
+  }
+  // ... 其余查询逻辑
+}
+```
+### 3.4 `detail` action
+查询单条话题详情，非会员访问付费话题时裁剪核心内容。
+请求：`{ action: "detail", id: "话题_id" }`
+响应：
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `success` | boolean | true |
+| `topic` | object/null | 话题对象（付费话题被裁剪时缺少 wrongScripts/rightScripts/tips） |
+| `locked` | boolean | 是否被锁定（免费话题恒为 false） |
+裁剪逻辑（`toPreviewTopic`）：
+```js
+function toPreviewTopic(topic) {
+  const { wrongScripts, rightScripts, tips, ...preview } = topic;
+  return preview;
+}
+```
+判断链：免费话题直接返回完整内容 → 会员直接返回完整内容 → 非会员访问付费话题返回 `toPreviewTopic(topic)` + `locked: true`。
+### 3.5 `dailyRecommendations` action
+按日期为每个年龄段选取 1 条推荐话题，共 3 条。
+请求：`{ action: "dailyRecommendations", dateKey: "2026-08-09" }`
+`dateKey` 可选，不传则取当天日期。格式 `YYYY-MM-DD`。
+响应：`{ success: true, recommendations: [topic, topic, topic] }`
+选取算法：对每个年龄段，用 FNV-1a 哈希 `hashText(dateKey + "-" + ageGroup)` 对总条数取模，得到偏移量 `skip`，从 `sortOrder` 升序排列的话题中跳过 `skip` 条取第 1 条。同一日期同一年龄段结果稳定（不变），不同日期结果不同。
+话题数量有 10 分钟内存缓存（`countsCache` + `countsCacheTime`，`COUNTS_CACHE_TTL = 10 * 60 * 1000`），避免每次推荐都并发查询 3 个 count。
+### 3.6 会员状态内存缓存
+`isMemberOpenid(openid)` 函数：
+- 用 `Map` 做进程级内存缓存，key = openid，value = `{ isMember, time }`
+- TTL 60 秒（`MEMBERSHIP_CACHE_TTL`）
+- 查询 `communication_user_profiles` 集合（`_id` = openid），读 `membershipActive` 或 `activated` 字段
+- 查询失败（文档不存在/集合不存在）视为非会员，不阻断主流程
+注意：这是云函数单实例的进程级缓存，不跨请求保证实时性。同一云函数实例在 60 秒内对同一 openid 只查一次数据库。
+### 3.7 `level1List` action
+查询某年龄段下所有一级分类，用于话题库页的分类标签栏。
+请求：`{ action: "level1List", ageGroup: "3-6" }`
+响应：`{ success: true, categories: ["日常沟通", "情绪管理", ...] }`
+实现：
+```js
+async function getLevel1List(event) {
+  const ageGroup = AGE_GROUPS.includes(event.ageGroup) ? event.ageGroup : "3-6";
+  const response = await db
+    .collection(COLLECTION_NAME)
+    .where(getPublicWhere({ ageGroup }))
+    .field({ level1: true })
+    .limit(200)
+    .get();
+  const level1Set = new Set();
+  (response.data || []).forEach((item) => {
+    if (item.level1) level1Set.add(item.level1);
+  });
+  return { categories: Array.from(level1Set) };
+}
+```
+查 `communication_topics` 集合，筛选 `status: "published"` + `ageGroup`，只取 `level1` 字段，用 `Set` 去重后返回数组。每个年龄段最多 10 个分类，查询量极小。
+---
+## 四、与其他模块的关联
+### 4.1 首页
+首页 D 区"今日推荐"调用 `topicData` 的 `dailyRecommendations` action，按日期获取 3 条推荐话题。详见《首页设计与实现方案》。
+### 4.2 开通页
+话题详情页 locked 状态下 `goActivate` 跳转开通页，传 `sourceKey` = 话题 id、`sourceTitle` = 话题 scenario。用户在开通页支付会员后返回详情页，`onShow` 检测到 locked 自动重新加载。`topicData` 的 `getUserPurchases`（通过 `isMemberOpenid`）此时返回 `isMember: true`，`detail` action 返回完整内容。
+### 4.3 收藏
+话题库页和话题详情页都调用 `userData` 的 `favoriteIds` + `toggleFavorite`。收藏状态在两处独立查询，不通过全局状态同步。用户在话题库收藏后切到详情页，详情页 `onShow`/`onLoad` 会重新查询收藏状态。
+### 4.4 访问记录
+话题详情页调用 `topicVisit` 的 `record` action 记录访问。`topicVisit` 的 `stats` action 提供已访问数/总数，供首页进度条使用（当前代码中首页未调用 stats，但接口已就绪）。
+### 4.5 训练计划
+训练计划的 `days[].topicId` 指向话题库中的话题 `_id`。用户从训练计划页点击进入话题详情页时，URL 带 `fromTraining`（计划 ID）和 `day`（天数）参数。详情页 `onShow` 检测到这两个参数后，自动调用 `trainingService` 的 `completeDay` 标记当天训练完成。详见本文档 2.3 节。
+### 4.6 话题关联
+`topic_relations` 集合定义话题间的场景推荐关系。话题详情页底部展示"相关话题"推荐模块，调用 `trainingService` 的 `getRelatedTopics` action 获取关联话题（最多 3 条），按关联类型（`same_category`/`cross_category`/`theme_chain`）展示。未配置关联的话题走 fallback 逻辑（同 `level1` + 同 `ageGroup` 随机取 2 条）。详见本文档 2.2 节。

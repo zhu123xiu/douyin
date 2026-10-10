@@ -1,0 +1,24 @@
+{
+  "collection": "communication_chapters",
+  "label": "专题包章节",
+  "requiredFields": {
+    "_id": "string",
+    "packageId": "string",
+    "chapterIndex": "number",
+    "title": "string",
+    "sections": "array",
+    "isFree": "boolean",
+    "status": "string",
+    "sortOrder": "number"
+  },
+  "optionalFields": {},
+  "arrayItemRequired": {
+    "sections": [
+      "heading",
+      "content"
+    ]
+  },
+  "uniqueFields": [
+    "_id"
+  ]
+}

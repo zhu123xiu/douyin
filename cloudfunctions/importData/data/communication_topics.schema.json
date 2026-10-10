@@ -1,0 +1,50 @@
+{
+  "collection": "communication_topics",
+  "label": "话题库主数据",
+  "requiredFields": {
+    "_id": "string",
+    "ageGroup": "string",
+    "level1": "string",
+    "level2": "string",
+    "tags": "array",
+    "isFree": "boolean",
+    "sortOrder": "number",
+    "status": "string"
+  },
+  "optionalFields": {
+    "packageId": "string",
+    "contentType": "string",
+    "title": "string",
+    "momentKey": "string",
+    "scenario": "string",
+    "scenarioDesc": "string",
+    "wrongScripts": "array",
+    "rightScripts": "array",
+    "tips": "string",
+    "moment": "string",
+    "sceneDescription": "string",
+    "approachTitle": "string",
+    "script": "string",
+    "whyItWorks": "string",
+    "task": "string",
+    "fallback": "string",
+    "reflection": "string",
+    "abilityFocus": "string",
+    "valueHook": "string"
+  },
+  "arrayItemRequired": {
+    "wrongScripts": [
+      "title",
+      "content",
+      "analysis"
+    ],
+    "rightScripts": [
+      "title",
+      "content",
+      "analysis"
+    ]
+  },
+  "uniqueFields": [
+    "_id"
+  ]
+}

@@ -1,0 +1,116 @@
+<view class="page-shell home-page">
+  <view class="hero">
+    <view class="hero__title">亲子对话</view>
+    <view class="hero__subtitle">用心沟通，陪伴成长</view>
+    <view class="progress-track hero__progress">
+      <view class="progress-fill" style="width: {{heroPercent}}%;"></view>
+    </view>
+    <view tt:if="{{statsReady}}" class="hero__meta">免费可看 {{heroFreeCount}} / {{heroTotalCount}} 个话题</view>
+    <view tt:elif="{{statsLoading}}" class="hero-meta-skeleton"></view>
+  </view>
+
+  <view tt:if="{{practiceLoading && !dailyPractice}}" class="soft-card loading-card">
+    <view class="sk-line"></view>
+    <view class="sk-line loading-card__line"></view>
+  </view>
+
+  <view tt:elif="{{dailyPractice}}" class="soft-card practice-card">
+    <view class="practice-card__halo"></view>
+    <view class="practice-card__top">
+      <view class="practice-card__badge">每日沟通练习</view>
+      <view class="practice-card__free">{{dailyPractice.completed ? '今日已完成' : '今天免费'}}</view>
+    </view>
+    <view class="practice-card__title">{{dailyPractice.title}}</view>
+    <view class="practice-card__summary">{{dailyPractice.valueHook || dailyPractice.summary}}</view>
+    <view class="practice-script">
+      <view class="practice-script__label">今晚试一句</view>
+      <view class="practice-script__text">“{{dailyPractice.script}}”</view>
+    </view>
+    <view class="practice-card__actions">
+      <button class="primary-btn practice-card__primary" bindtap="openPractice">
+        {{dailyPractice.completed ? '再看一遍' : '去练习'}} →
+      </button>
+      <button
+        class="practice-card__change"
+        loading="{{changingPractice}}"
+        disabled="{{changingPractice}}"
+        catchtap="changePractice"
+      >
+        换一换{{changeLeft >= 0 ? '(' + changeLeft + ')' : ''}}
+      </button>
+    </view>
+  </view>
+
+  <view class="section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">会员主题周</view>
+    </view>
+    <view class="section-heading__action" bindtap="openThemeWeeks">查看全部 ›</view>
+  </view>
+
+  <view tt:if="{{themeWeek}}" class="soft-card theme-recommend" bindtap="openThemeWeek">
+    <view class="theme-recommend__icon">✿</view>
+      <view class="theme-recommend__content">
+        <view class="theme-recommend__title">{{themeWeek.title}}</view>
+        <view class="theme-recommend__subtitle">{{themeWeek.subtitle}}</view>
+      </view>
+    <view class="theme-recommend__badge">{{themeWeek.current ? '进行中' : themeWeek.completed ? '已完成' : themeWeek.locked ? '会员专享' : '开始练习'}}</view>
+  </view>
+  <view tt:elif="{{themeWeekLoading}}" class="soft-card loading-card section-loading-card">
+    <view class="sk-line"></view>
+    <view class="sk-line loading-card__line"></view>
+  </view>
+
+  <view class="section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">沟通专题</view>
+    </view>
+    <view class="section-heading__action" bindtap="openAllPackages">查看全部 ›</view>
+  </view>
+
+  <view tt:if="{{packages.length}}" class="package-list">
+    <view class="package-row">
+      <view
+        tt:for="{{packages}}"
+        tt:key="_id"
+        class="package-card package-card--mini"
+        data-id="{{item._id}}"
+        bindtap="openPackage"
+        style="background: {{item.gradientStyle}};"
+      >
+        <view class="package-card__label">{{item.packageLabel}}</view>
+        <view class="package-card__name">{{item.shortTitle}}</view>
+        <view class="package-card__meta">{{item.chapterCount}} 章</view>
+      </view>
+    </view>
+  </view>
+  <view tt:elif="{{packagesLoading}}" class="soft-card loading-card section-loading-card">
+    <view class="sk-line"></view>
+    <view class="sk-line loading-card__line"></view>
+  </view>
+</view>
+
+<view tt:if="{{showAgeSheet}}" class="sheet-mask">
+  <view class="bottom-sheet age-sheet" catchtap="stopPropagation">
+    <view class="sheet-handle"></view>
+    <view class="sheet-title">孩子现在多大？</view>
+    <view class="sheet-subtitle">选择年龄后，今天就能看到一条适合你们的免费练习。</view>
+    <view class="age-sheet__options">
+      <view
+        tt:for="{{ageOptions}}"
+        tt:key="ageGroup"
+        class="age-sheet__option"
+        data-age="{{item.ageGroup}}"
+        bindtap="chooseAge"
+      >
+        <view class="age-sheet__mark" style="background: {{item.color}};">{{item.icon}}</view>
+        <view>
+          <view class="age-sheet__label">{{item.label}}</view>
+          <view class="age-sheet__hint">{{item.subtitle}}</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</view>

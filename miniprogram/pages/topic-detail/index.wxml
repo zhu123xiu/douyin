@@ -1,0 +1,138 @@
+<view class="page-shell detail-page">
+  <view tt:if="{{loading}}" class="loading-state">正在加载…</view>
+  <view tt:elif="{{errorMessage}}" class="error-card">{{errorMessage}}</view>
+
+  <view tt:elif="{{topic}}">
+    <view class="detail-head">
+      <view class="detail-head__tags">
+        <text class="tag">{{topic.ageLabel}}</text>
+        <text class="tag tag--secondary">{{isProactive ? topic.moment : topic.level2}}</text>
+        <text tt:if="{{freeToRead}}" class="free-pill">免费</text>
+        <text tt:elif="{{todayFree}}" class="today-pill">今日免费</text>
+      </view>
+      <view class="star-btn" bindtap="toggleFavorite">{{topic.favorited ? '★' : '☆'}}</view>
+    </view>
+
+    <view class="detail-title">{{topic.displayTitle}}</view>
+
+    <view tt:if="{{isProactive && topic.abilityFocus}}" class="detail-ability">
+      <text class="ability-badge">{{topic.abilityFocus}}</text>
+    </view>
+    <view tt:if="{{isProactive && topic.valueHook}}" class="value-hook-card">
+      <view class="value-hook__content">{{topic.valueHook}}</view>
+    </view>
+
+    <view class="soft-card scene-card">
+      <view class="scene-card__label">{{isProactive ? '适合时机' : '▣ 场景描述'}}</view>
+      <view class="scene-card__content">{{isProactive ? topic.sceneDescription : topic.scenarioDesc}}</view>
+    </view>
+
+    <view tt:if="{{locked}}" class="soft-card locked-card">
+      <view class="locked-card__title">解锁完整沟通话术</view>
+      <view class="locked-card__desc">
+        今天的每日练习可完整阅读；其他会员话题开通会员后可查看全部内容。
+      </view>
+      <button class="primary-btn" bindtap="goActivate">开通后查看完整内容</button>
+    </view>
+
+    <view tt:if="{{isProactive && !locked}}" class="proactive-content">
+      <view class="detail-section proactive-section">
+        <view class="detail-section__title">今天可以这样说</view>
+        <view class="proactive-card proactive-card--script">
+          <view class="proactive-card__label">{{topic.approachTitle}}</view>
+          <view class="proactive-card__script">“{{topic.script}}”</view>
+        </view>
+      </view>
+
+      <view class="detail-section proactive-section">
+        <view class="detail-section__title">为什么有效</view>
+        <view class="proactive-copy">{{topic.whyItWorks}}</view>
+      </view>
+
+      <view class="detail-section proactive-section">
+        <view class="detail-section__title">今晚试一试</view>
+        <view class="proactive-card proactive-card--task">{{topic.task}}</view>
+      </view>
+
+      <view class="soft-card fallback-card">
+        <view class="fallback-card__title">没有机会时怎么办</view>
+        <view class="fallback-card__content">{{topic.fallback}}</view>
+      </view>
+
+      <view class="soft-card reflection-card">
+        <view class="reflection-card__title">留意这一点</view>
+        <view class="reflection-card__content">{{topic.reflection}}</view>
+      </view>
+    </view>
+
+    <view tt:if="{{!isProactive && topic.wrongScripts && topic.wrongScripts.length}}" class="detail-section">
+      <view class="detail-section__header">
+        <view class="detail-section__title detail-section__title--wrong">× 错误回答</view>
+        <view class="detail-section__count">共 {{topic.wrongScripts.length}} 个常见误区</view>
+      </view>
+      <view tt:for="{{visibleWrongScripts}}" tt:key="id" class="script-card script-card--wrong">
+        <view class="script-card__row">
+          <view class="script-card__index script-card__index--wrong">{{item.order}}</view>
+          <view class="script-card__body">
+            <view class="script-card__heading">{{item.title}}</view>
+            <view class="script-card__content">{{item.content}}</view>
+            <view class="script-card__analysis script-card__analysis--wrong">
+              <view class="script-card__analysis-title">为什么这是错的？</view>
+              <view>{{item.analysis}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view tt:if="{{!wrongExpanded && topic.wrongScripts.length > 1}}" class="expand-btn" bindtap="expandWrong">
+        查看另外 {{topic.wrongScripts.length - 1}} 个误区
+      </view>
+    </view>
+
+    <view tt:if="{{!isProactive && topic.rightScripts && topic.rightScripts.length}}" class="detail-section">
+      <view class="detail-section__header">
+        <view class="detail-section__title detail-section__title--right">✓ 正确回答</view>
+        <view class="detail-section__count">共 {{topic.rightScripts.length}} 个推荐做法</view>
+      </view>
+      <view tt:for="{{topic.rightScripts}}" tt:key="id" class="script-card script-card--right">
+        <view class="script-card__row">
+          <view class="script-card__index script-card__index--right">{{item.order}}</view>
+          <view class="script-card__body">
+            <view class="script-card__heading">{{item.title}}</view>
+            <view class="script-card__content">{{item.content}}</view>
+            <view class="script-card__analysis script-card__analysis--right">
+              <view class="script-card__analysis-title">为什么这样做是对的？</view>
+              <view>{{item.analysis}}</view>
+            </view>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view tt:if="{{!isProactive && topic.tips}}" class="tips-card">
+      <view class="tips-card__title">● 专家小贴士</view>
+      <view class="tips-card__content">{{topic.tips}}</view>
+    </view>
+
+    <view tt:if="{{packageTip}}" class="package-tip" bindtap="openPackage">
+      <view class="package-tip__left">
+        <view class="package-tip__caption">本话题收录于</view>
+        <view class="package-tip__title">《{{packageTip.title}}》</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+
+    <view tt:if="{{relatedTopics.length}}" class="detail-section">
+      <view class="detail-section__header">
+        <view class="detail-section__title">相关话题</view>
+      </view>
+      <scroll-view class="related-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+        <view class="related-row">
+          <view tt:for="{{relatedTopics}}" tt:key="topicId" class="related-card" data-id="{{item.topicId}}" bindtap="openRelatedTopic">
+            <view class="related-card__title">{{item.scenario}}</view>
+            <text class="tag tag--secondary">{{item.label}}</text>
+          </view>
+        </view>
+      </scroll-view>
+    </view>
+  </view>
+</view>

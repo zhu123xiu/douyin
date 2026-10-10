@@ -1,0 +1,839 @@
+# 亲子沟通话题库小程序 · 专题包功能设计与实现方案
+版本：v1.0　日期：2026-08-07
+本文档是专题包功能的完整设计与实现方案。涵盖：数据层设计（`communication_packages` 集合）、`packageData` 云函数（5 个 action）、`payService` 动态包 ID、专题包列表/详情/阅读器三个前端页面、首页 C 区专题包横滑、开通页单包购买扩展。双 SKU 付费模型（单包 9.9 元 / 会员 59 元全解锁），共 11 个专题包，全部支持单买。新增专题包做到「只加数据、不改代码」。
+> **v2.0 修订说明**（相对 v1.0 的关键变更）
+>
+> 一、**产品定义变了**。专题包不再是「纯文字章节商品」，而是「方法论章节 + 该主题实战话题」的解决方案包。详见 2.4 节。
+>
+> 二、**包数从 14 改为 10**，且包的划分改为从话题库真实 `level1` 反推，保证 300 道话题 100% 被覆盖。旧的 14 个包名（睡前沟通、餐桌对话、亲子旅行等）是拍脑袋的，与实际数据完全对不上，已作废。
+>
+> 三、**会员价 49.9 → 59**。单包 9.9 不变。详见 2.4 节定价测算。
+>
+> 四、**取消 `member_only` 类型**。11 个包全部可单买，商品结构简化。原先 `separation`/`gender` 的会员专享设定废除。
+>
+> 五、**章节规模从 5-10 章提到 20-30 章**，且引入「部分（part）」分组。详见 2.3 节。
+---
+## 一、整体架构设计
+### 1.1 分层结构
+```
+┌──────────────────────────────────────────────────────────┐
+│ 前端页面层                                                 │
+│  index（专题横滑卡片区）                                    │
+│  package-list（专题包全部列表）                             │
+│  package-detail（简介 + 章节目录 + 购买按钮）                │
+│  package-reader（章节正文阅读 + 上下章翻页）                  │
+│  activation（扩展：支持 itemType=package 的单包下单）        │
+└────────────────────────┬─────────────────────────────────┘
+                         │ wx.cloud.callFunction
+┌────────────────────────▼─────────────────────────────────┐
+│ 云函数层                                                   │
+│  packageData                                              │
+│    ├─ list      专题包列表（含解锁态、进度）                  │
+│    ├─ detail    单包简介 + 章节目录（正文裁剪）               │
+│    ├─ chapter   单章正文（付费校验后返回）                    │
+│    ├─ progress  记录/读取阅读进度                            │
+│    └─ validIds  给 payService 用的合法包 ID 列表              │
+│  payService                                               │
+│    └─ VALID_PACKAGE_IDS 动态读取 + 缓存 + 兜底               │
+└────────────────────────┬─────────────────────────────────┘
+┌────────────────────────▼─────────────────────────────────┐
+│ 数据层                                                     │
+│  communication_packages        专题包内容                     │
+│  communication_user_profiles   会员态 + unlockedPackages   │
+│                                + packageProgress             │
+│  communication_membership_orders  订单                       │
+└──────────────────────────────────────────────────────────┘
+```
+### 1.2 三条设计原则
+**原则一：内容与代码解耦。** 新增专题包的唯一动作是往 `communication_packages.json` 追加一条文档并重新导入。`VALID_PACKAGE_IDS`、首页卡片、列表页条目、章节目录全部由数据驱动，不需要改任何一行代码。这直接对应手册 6.2 节「专题包按季度更新」的运营节奏——季度更新不该每次都发版。当前规划 11 个包，已覆盖话题库全部 345 道付费话题。
+**原则二：正文永不出云函数边界，除非已鉴权。** `list` 和 `detail` 两个 action 一律裁掉 `sections[].content`，只有 `chapter` action 在校验通过后返回单章正文。这样即使前端被抓包，未购买用户也拿不到内容。这与 `topicData` 现有的 `toPreviewTopic` 裁剪思路一致。
+---
+## 二、数据层设计
+### 2.1 `communication_packages` 集合结构
+`communication_packages` 集合的完整文档结构如下：
+```json
+{
+  "_id": "emotion",
+  "title": "陪孩子搞定「情绪火山」",
+  "subtitle": "30章搞定孩子发脾气",
+  "intro": "从识别情绪信号到当场应对，从事后复盘到长期能力培养，配 35 个真实场景实战话术。",
+  "cover": "",
+  "iconPath": "/assets/icons/pkg-emotion.png",
+  "gradientFrom": "#D4B096",
+  "gradientTo": "#A8886C",
+  "contentType": "chapters",
+  "ageGroups": ["3-6", "7-9", "10-12"],
+  "price": 9.9,
+  "priceFen": 990,
+  "isFree": false,
+  "sortOrder": 1,
+  "status": "published",
+  "parts": ["认知篇", "场景篇", "关系篇", "进阶篇", "工具篇"],
+  "partTopics": {
+    "场景篇": ["ph_3_6_021", "ph_3_6_023", "ph_7_9_041"],
+    "关系篇": ["ph_10_12_055", "ph_7_9_054"],
+    "进阶篇": ["ph_3_6_025"]
+  },
+  "chapters": [
+    {
+      "title": "第一章：识别情绪崩溃的信号和阶段",
+      "part": "认知篇",
+      "isFree": true,
+      "sections": [
+        { "heading": "常见误区", "content": "……" },
+        { "heading": "推荐做法", "content": "……" },
+        { "heading": "话术示例", "content": "……" }
+      ]
+    }
+  ]
+}
+```
+相对 v1.0，结构上有三处变化：删除 `purchaseType`（已取消 member_only）、新增 `parts` 和 `partTopics`（见 2.2、2.3 节）、`chapters[]` 每项新增 `part` 字段。
+字段说明。`_id` 是包标识，同时充当 `payService` 的 `itemId`，必须是英文小写短词。`subtitle` 是首页卡片副标题，10-14 字；缺失时前端用 `intro` 截断到 14 字兜底。`cover` 是云存储封面图 `fileID`，为空时前端退回用 `iconPath` 本地图标渲染，先不阻塞上线。
+### 2.1.1 十一个专题包清单
+包的划分不是拍脑袋，而是从话题库真实的 28 个 `level1` 归并而来，保证 **345 道付费话题 100% 被覆盖、无遗漏无重叠**（另 26 道节日话题不入包，见 2.1.3 节）。
+| _id | 包名 | 3-6 | 7-9 | 10-12 | 实战话题 | 章节 | gradientFrom | gradientTo |
+|---|---|---|---|---|---|---|---|---|
+| emotion | 陪孩子搞定「情绪火山」 | 10 | 10 | 15 | 35 | 30 | `#D4B096` | `#A8886C` |
+| homework | 不吼不叫搞定「作业拖延症」 | 10 | 20 | 20 | 50 | 30 | `#B8A0D0` | `#8B67BD` |
+| habit | 从催促到自觉：习惯与自理 | 10 | 25 | 15 | 50 | 30 | `#A8C5A0` | `#6B9E5F` |
+| screen | 手机不是洪水猛兽：从对抗到共管 | 10 | 15 | 15 | 40 | 24 | `#C8D0A0` | `#9AAC58` |
+| social | 孩子的社交课：交友与冲突 | 10 | 15 | 10 | 35 | 28 | `#C4A8C8` | `#9B6EA0` |
+| money | 规则、金钱与边界感 | 0 | 15 | 10 | 25 | 24 | `#E8C4A0` | `#D09860` |
+| routine | 吃饭睡觉不再是战争 | 20 | 0 | 0 | 20 | 24 | `#E0A998` | `#C4956A` |
+| separation | 分离焦虑与入园适应 | 20 | 0 | 0 | 20 | 20 | `#9CBCB8` | `#5F9A92` |
+| safety | 安全意识与底线教育 | 10 | 0 | 0 | 10 | 20 | `#D0A8A8` | `#B87070` |
+| interest | 兴趣、天赋与自我认同 | 0 | 0 | 15 | 15 | 20 | `#A0B8D8` | `#5080B8` |
+| connection | 日常联结：让孩子愿意跟你说话 | 15 | 15 | 15 | 45 | 28 | `#B0C8E8` | `#6890C0` |
+合计 278 章、345 道实战话题。章节数不强求统一：`emotion`/`homework`/`habit` 是刚需大主题做到 30 章；`safety`/`interest`/`separation` 这类信息密度有限的主题做 20 章即可。**刻意不等长比凑数更好**——强求每包 30 章会导致后几章注水，而读者对内容质量的判断取决于最差的那几章。
+`gradientFrom` / `gradientTo` 是卡片渐变背景的起止色值，取代旧的 `tone` 三色枚举，卡片渲染时用 `linear-gradient(155deg, gradientFrom, gradientTo)`。
+### 2.1.3 扩容话题的归属：第 11 包与节日运营内容
+`communication_topics_expansion.nbjson` 里有 71 道扩容话题，与主库 300 道零重叠，此前未被任何包覆盖。处理方式分两类。
+**45 道并入第 11 个包 `connection`。** 这 45 道来自三个 `level1`——「深度沟通与信任建立」15 道、「日常沟通与情感连接」15 道、「主动沟通与亲子陪伴」15 道，三个年龄段恰好各 15 道，分布均衡。它们的共同内核是「怎么让孩子愿意开口」，与现有 10 个包的「解决某个具体冲突」定位互补：其他包处理的是问题爆发时怎么办，这个包处理的是日常关系怎么维护，属于预防性内容。主题独立且成立，因此单独成包而非拆散并入。
+**26 道节日话题不入任何包，转为免费运营内容。** 「时效性与节日话题」这 26 道按时间轴组织（开学季、寒暑假、春节走亲戚、生日、期末考、转学等），它的价值锚点是「此刻正好用得上」而不是「这个主题我要系统学」。塞进付费包会有两个问题：一是归到哪个包都别扭（"开学前抗拒去幼儿园"该进 separation 还是 routine？），二是错过时间点后价值骤降，用户会觉得买亏了。
+因此这 26 道保持 `isFree: true`，作为运营抓手按节令推送——春节前推走亲戚话题、开学前推入学适应、期末前推考试焦虑。**这是拉新和唤醒的弹药，不是变现的商品。** 它同时承担了「让用户尝到甜头再考虑付费」的漏斗上层作用。
+需要注意的是，这 26 道虽不入包，但仍应参与话题库的正常浏览和搜索，只是在 `partTopics` 校验规则中豁免——校验脚本检查「每道**付费**话题至少被一个包收录」时，应先按 `isFree` 过滤。
+**`connection` 包的 45 道话题已按 30% 比例重新标注。** 扩容的 71 道话题在生产时统一标了 `isFree: true`，其中 45 道划归 `connection` 包后会造成权益结构不一致——该包卖 9.9 元，但挂载的实战话题对所有人免费，付费用户只多拿到 28 章正文。
+已由 `scripts/migration/relabel-connection-is-free.py` 按主库同样的规则处理：按 `level1` 分组、每组约 30% 保持免费、每组至少保留 2 条免费、固定随机种子保证可复现。结果是 **12 道免费 / 33 道付费**，与其他 10 个包的权益结构对齐。
+26 道节日话题不在处理范围，保持全免费。
+处理后全站话题的付费结构：371 道中 124 道免费（主库 86 + connection 12 + 节日 26）、247 道付费。
+**关于 `purchaseType`：该字段已废除。** v1.0 里 `separation`/`gender` 设为 `member_only`（仅会员可读、不可单买），现已取消。理由是 11 个包的规模下，再分两种购买类型会让商品结构复杂化，用户需要做额外的判断；而且会员的价值应该靠**数量**（11 个包单买 108.9 元 vs 会员 59 元）保护，不该靠把部分商品设为专享来保护。**所有涉及 `purchaseType` 的云函数判断、前端分支、校验规则均应删除。**
+`contentType` 取值 `chapters`（走章节阅读器）。所有专题包统一使用章节化形态。
+`price` 值为 9.9（前端展示用），`priceFen: 990` 供下单时传给 `payService` 的 `goodsPrice`。两者冗余但各有用途——前端展示不该做浮点乘法，后端计价必须用整数分。导入时若 `priceFen` 缺失，云函数按 `Math.round(price * 100)` 兜底。
+`isFree` 是包级免费标记（整包免费，无需购买），付费专题包为 `false`。`chapters[].isFree` 是章节级试读标记，首章 `true`。两者的判定优先级见 4.3 节。
+### 2.1.2 产品定义：专题包 = 方法论章节 + 实战话题
+这是 v2.0 最本质的变化，其他所有改动都由它推导而来。
+v1.0 把专题包定义为「纯文字章节商品」，单包约 6000 字卖 9.9 元。这个定义有个致命问题：**内容资产的分布严重失衡**。实测数据——话题库付费内容 148,247 字（214 道），专题包全部内容 17,666 字（3 包 23 章），**话题库是专题包的 8.4 倍**。也就是说 9.9 元卖的是全站 11% 的内容，而一个买了「情绪火山」包的家长，隔壁躺着 35 道情绪实战话题（约 2.4 万字）却与他无关。
+「9.9 不值」的真实来源不是内容少，而是**切分方式错了**——该打包的东西被拆开卖了。
+新定义是：**一个专题包 = 该主题的方法论章节 + 该主题的全部实战话题**。以 emotion 包为例，用户花 9.9 元拿到 30 章方法论（约 22,500 字）+ 35 道实战话题（约 2.4 万字），合计近 5 万字，且构成「理论→实战」的完整闭环。
+关键在于**这不需要生产任何新话题内容**。300 道话题已经写好了，只是重新划分了售卖边界。
+### 2.2 `partTopics`：话题归属与解锁范围
+`partTopics` 是一个字段承担两个职责：**呈现编排** + **权限边界**。
+```json
+"partTopics": {
+  "场景篇": ["ph_3_6_021", "ph_3_6_023", "ph_7_9_041"],
+  "关系篇": ["ph_10_12_055", "ph_7_9_054"]
+}
+```
+**呈现职责**：`package-detail` 目录页按部分分组，每个部分下先列该部分的章节，再列该部分挂载的实战话题，让「读完理论紧接着看实战」的动线成立。
+**权限职责**：把 `partTopics` 所有 value 数组摊平取并集，就是这个包解锁的话题范围。用户购买后，`payService` 计算 `unlockedTopicIds` 并冗余写入 `communication_user_profiles`，`topicData` 读取时直接 `includes` 判定，不需要跨表查询。
+设计过程中曾考虑在话题上加 `theme` 字段做规则匹配（`theme=emotion` 的题自动归入 emotion 包），最终**否决**。原因是显式 id 列表有三个优势：权限边界完全显式，打开包数据一眼能看清解锁哪些题，调试和运营都更直观；天然支持一题多包（「孩子写作业时发脾气」可同时被 emotion 和 homework 收录，两个包的列表里都写这个 id 即可，而单值 `theme` 做不到）；可脚本校验（导入时检查每道付费话题是否至少被一个包收录，未覆盖的直接报错，比 `theme` 打标遗漏导致的静默失效更安全）。
+代价是列表较长（11 个包共 345 个 id 写在数据文件里）。但这只是观感问题，且初始列表可由脚本按 `level1` 批量生成再人工微调。
+**兜底规则**：`partTopics` 只需编排你在意的部分。未被显式编排、但属于本包主题的话题，前端归入目录末尾的「更多实战场景」分组，避免因漏配而丢内容。
+**校验规则**：`partTopics` 中出现的每个 `topicId` 必须真实存在于 `communication_topics`；全部 11 个包的 id 并集应覆盖全部 345 道付费话题（26 道 `isFree: true` 的节日话题豁免，见 2.1.3 节）；同一 id 可出现在多个包中，但同一包内不可重复。
+### 2.3 `parts`：章节分组
+章节从 5-10 章提到 20-30 章后，平铺的目录会非常长，用户看到 30 个条目会有压力且找不到目标。因此引入「部分」这一层。
+以 emotion 包 30 章为例的五部分结构：认知篇 5 章（大脑机制、气质类型、生理诱因、区分情绪崩溃与行为操纵等）、场景篇 10 章（商场超市、餐厅、亲戚家、公共交通、校门口、医院、旅途、有其他小孩在场、老人在场、你自己也快崩溃时）、关系篇 5 章（夫妻教育不一致、隔代教养冲突、吼完孩子后如何修复、孩子只对你发脾气）、进阶篇 6 章（复盘、长期能力培养、情绪词汇教学、何时需要专业帮助、特殊时期）、工具篇 4 章（可视化工具、情绪日记、家庭情绪公约、30 天练习计划）。
+**这些新增章节全部是净增内容，不是把现有 8 章拆细。** 拆细会导致每章 400 字，用户翻目录看到 30 章很兴奋、点进去发现很薄，那种落差比 8 章更伤。
+**数据结构上刻意不做嵌套。** `chapters` 保持一维平铺，每章加一个 `part: "场景篇"` 字段，前端按此字段分组渲染；`parts` 数组声明分组顺序。这样 `packageData` 的 `detail` 和 `chapter` 两个 action 里按下标取章节的逻辑（`chapters[index]`）完全不用改，改动面最小。若改成 `parts[].chapters[]` 两层嵌套，所有按下标寻址的代码都要重写，风险不成比例。
+### 2.4 定价模型
+| SKU | 价格 | 内容 |
+|---|---|---|
+| 单个专题包 | ¥9.9 | 该包 20-30 章 + 该主题实战话题（15-50 道） |
+| 全站会员 | ¥59 | 11 个包共 278 章 + 全部 300 道话题，约 37 万字 |
+**会员定 59 的测算依据。** 11 个包全买是 108.9 元，这是价格天花板，会员必须显著低于它。59 元的价差倍数是 6 倍（59 ÷ 9.9），相比全买省 49.9 元，升级触发点落在第 6 个包——用户买到第 6 个包时会发现"再买就亏了"。
+为什么不是 79 或 99：79 的触发点在第 8 个包、99 在第 10 个包，大部分用户走不到那么远，会员会变成少数重度用户的选项，转化率大幅下降。为什么不是 49.9：5 倍以下价差会让单包显得没必要，用户直接跳会员，看似是好事，但会失去"9.9 敢试、59 不敢"的低门槛转化人群，砍掉了漏斗上层。
+**单位价格对比**：单包每万字约 4.4 元，会员每万字约 1.58 元，会员的单位价格是单包的三分之一，"批发折扣"足够明显，升级动机成立。
+**年龄段包（¥29.9）暂不实施。** 曾考虑加一档「该年龄段 100 道话题 + 相关专题包」。否决原因是性价比算不通——29.9 解锁 100 道题（0.3 元/题）对比 9.9 解锁 35 道题（0.28 元/题），没有体现批发优惠；若同时打包专题章节则 29.9 又太便宜。等 11 个包上齐、有真实购买数据后再评估。
+**主题包不做年龄限制。** 买了 emotion 包就是三个年龄段的情绪题全解锁。理由：家长心智是「解决孩子发脾气」而非「买 7-9 岁的情绪内容」；孩子会长大，内容自动延续是正向体验；且这样两档商品边界才清晰（主题包横切、会员全覆盖）。
+### 2.5 `communication_user_profiles` 字段扩展
+用户档案集合 `communication_user_profiles` 包含以下与专题包相关的字段：
+```js
+{
+  openid: "…",
+  membershipActive: true,        // 会员状态
+  unlockedPackages: ["emotion"], // 已购专题包
+  unlockedTopicIds: [            // 已解锁话题 id（由已购包的 partTopics 摊平得到）
+    "ph_3_6_021", "ph_7_9_041"
+  ],
+  packageProgress: {             // 阅读进度
+    emotion: {
+      lastChapterIndex: 2,       // 最后阅读到的章节下标（0-based）
+      readChapters: [0, 1, 2],   // 已读章节下标数组，用于列表页显示进度
+      updatedAt: "2026-08-07T…"
+    }
+  }
+}
+```
+用 `db.command.set()` 语义按包写入，避免并发覆盖整个 `packageProgress` 对象。进度是纯体验增强，读失败不阻断主流程。
+**`unlockedTopicIds` 的写入时机与用途。** 这个字段是冗余缓存，不是权威数据源——权威来源是各包的 `partTopics`。在两个时机重算并写入：用户单包购买成功时（`payService` 发货回调），把新购包的 `partTopics` 摊平后并入；运营侧调整了某个包的 `partTopics` 后，由脚本批量重算受影响用户。
+冗余的理由是性能。话题库列表页一次返回 20 条，若每条都要「查用户已购包 → 查各包 partTopics → 判断包含关系」，等于每次翻页多出两次跨表查询。冗余成一个数组后，列表接口一次读档案、内存内 `Set.has()` 判定，成本可忽略。
+**话题解锁的完整判定链**：`topic.isFree || membershipActive || unlockedTopicIds.includes(topic._id)`。三者任一成立即可读。这是对 v1.0 二元模型（`isFree || isMember`）的扩展——原模型下买了专题包完全不影响话题解锁状态，两条线是断开的。
+### 2.6 schema 校验规则
+新建 `cloudfunctions/importData/data/communication_packages.schema.json`：
+```json
+{
+  "collection": "communication_packages",
+  "label": "专题包内容",
+  "requiredFields": {
+    "_id": "string",
+    "title": "string",
+    "intro": "string",
+    "chapters": "array",
+    "isFree": "boolean",
+    "sortOrder": "number",
+    "status": "string"
+  },
+  "optionalFields": {
+    "subtitle": "string",
+    "cover": "string",
+    "iconPath": "string",
+    "gradientFrom": "string",
+    "gradientTo": "string",
+    "contentType": "string",
+    "ageGroups": "array",
+    "price": "number",
+    "priceFen": "number"
+  },
+  "arrayItemRequired": {
+    "chapters": ["title", "sections"]
+  },
+  "uniqueFields": ["_id"]
+}
+```
+手册 14.3 节提到的嵌套校验局限依然存在——`sections` 内的 `heading`/`content` 走不了 `arrayItemRequired`。建议在 `importData` 的通用校验之外，为本集合补一段轻量的业务校验（见 8.2 节的「导入前自检脚本」），在本地跑一遍再导入，比扩展 schema 格式成本低。
+---
+## 三、云函数设计：`packageData`
+新建 `cloudfunctions/packageData/`，包含 `index.js`、`package.json`、`config.json`。
+### 3.1 权限判定的公共逻辑
+```js
+const db = cloud.database();
+const PACKAGE_COLLECTION = "communication_packages";
+const PROFILE_COLLECTION = "communication_user_profiles";
+const ENTITLEMENT_CACHE_TTL = 60 * 1000;
+const entitlementCache = new Map();
+function getRequesterOpenid() {
+  const ctx = cloud.getWXContext() || {};
+  return ctx.FROM_OPENID || ctx.OPENID || "";
+}
+// 一次查询同时拿到会员态和已解锁包列表，避免两次读档案
+async function getEntitlement(openid) {
+  if (!openid) return { isMember: false, unlockedPackages: [], progress: {} };
+  const cached = entitlementCache.get(openid);
+  if (cached && Date.now() - cached.time < ENTITLEMENT_CACHE_TTL) {
+    return cached.value;
+  }
+  let value = { isMember: false, unlockedPackages: [], progress: {} };
+  try {
+    const doc = await db.collection(PROFILE_COLLECTION).doc(openid).get();
+    const p = (doc && doc.data) || {};
+    value = {
+      isMember: Boolean(p.membershipActive || p.activated),
+      unlockedPackages: Array.isArray(p.unlockedPackages) ? p.unlockedPackages : [],
+      progress: p.packageProgress && typeof p.packageProgress === "object" ? p.packageProgress : {},
+    };
+  } catch (error) {
+    // 档案不存在视为未购买，不阻断
+  }
+  entitlementCache.set(openid, { value, time: Date.now() });
+  return value;
+}
+function canReadPackage(pkg, entitlement) {
+  if (pkg.isFree) return true;
+  if (entitlement.isMember) return true;
+  return entitlement.unlockedPackages.indexOf(pkg._id) >= 0;
+}
+```
+这里刻意复用了 `topicData` 里 `membershipCache` 的同款进程级缓存思路，60 秒 TTL。写入权益的路径在 `payService`，跨云函数实例，所以缓存必须短。购买后前端的「重新拉取」会落到新实例或缓存过期后，实测 60 秒足够；如果担心购买后立刻返回详情页仍显示锁定，可以在 `detail` action 支持一个 `skipCache: true` 参数，购买成功后的那一次请求带上（详见 5.3 节的支付回流处理）。
+### 3.2 `list` action——专题包列表
+```js
+async function listPackages() {
+  const openid = getRequesterOpenid();
+  const entitlement = await getEntitlement(openid);
+  const res = await db.collection(PACKAGE_COLLECTION)
+    .where({ status: "published" })
+    .field({
+      title: true, subtitle: true, intro: true, cover: true, iconPath: true,
+      gradientFrom: true, gradientTo: true, parts: true, partTopics: true,
+      contentType: true, ageGroups: true,
+      price: true, priceFen: true, isFree: true, sortOrder: true,
+      chapters: true,   // 需要 chapters.length，但下面会裁掉正文
+    })
+    .orderBy("sortOrder", "asc")
+    .limit(50)
+    .get();
+  const packages = (res.data || []).map((pkg) => {
+    const chapters = Array.isArray(pkg.chapters) ? pkg.chapters : [];
+    const unlocked = canReadPackage(pkg, entitlement);
+    const prog = entitlement.progress[pkg._id] || {};
+    const readCount = Array.isArray(prog.readChapters) ? prog.readChapters.length : 0;
+    return {
+      _id: pkg._id,
+      title: pkg.title,
+      subtitle: pkg.subtitle || String(pkg.intro || "").slice(0, 14),
+      cover: pkg.cover || "",
+      iconPath: pkg.iconPath || "",
+      gradientFrom: pkg.gradientFrom || "#E0A998",
+      gradientTo: pkg.gradientTo || "#C4956A",
+      contentType: pkg.contentType || "chapters",
+      ageGroups: pkg.ageGroups || [],
+      priceFen: pkg.priceFen || Math.round(Number(pkg.price || 9.9) * 100),
+      priceText: (Number(pkg.priceFen || Math.round(Number(pkg.price || 9.9) * 100)) / 100).toFixed(2),
+      chapterCount: chapters.length,
+      freeChapterCount: chapters.filter((c) => c.isFree).length,
+      unlocked,
+      readCount,
+      lastChapterIndex: Number(prog.lastChapterIndex) || 0,
+    };
+  });
+  return { packages, isMember: entitlement.isMember };
+}
+```
+`chapters` 在 `field` 里被取出只是为了算 `chapterCount`，返回体里不带任何章节数据。云开发的 `field` 不支持 `$size` 投影，所以只能取全量再本地裁——11 个包每个 20-30 章的量级下，`field` 取全量 `chapters` 的内存流转约 2MB，仍在云函数限额内但已不宽裕。**建议直接在文档上冗余 `chapterCount` 字段**，由导入脚本写入，`field` 里就不取 `chapters` 了。
+### 3.3 `detail` action——简介 + 章节目录
+```js
+async function getPackageDetail(event) {
+  const id = String(event.id || "").trim();
+  if (!id) return { package: null };
+  const openid = getRequesterOpenid();
+  const entitlement = await getEntitlement(openid, event.skipCache === true);
+  const doc = await db.collection(PACKAGE_COLLECTION).doc(id).get().catch(() => null);
+  const pkg = doc && doc.data ? doc.data : null;
+  if (!pkg || pkg.status !== "published") return { package: null };
+  const unlocked = canReadPackage(pkg, entitlement);
+  const chapters = Array.isArray(pkg.chapters) ? pkg.chapters : [];
+  const prog = entitlement.progress[id] || {};
+  const readChapters = Array.isArray(prog.readChapters) ? prog.readChapters : [];
+  // 目录只返回标题和锁态，正文一律裁掉
+  const outline = chapters.map((c, index) => ({
+    index,
+    title: c.title,
+    sectionHeadings: (c.sections || []).map((s) => s.heading),
+    free: Boolean(c.isFree),
+    readable: unlocked || Boolean(c.isFree),
+    read: readChapters.indexOf(index) >= 0,
+  }));
+  return {
+    package: {
+      _id: pkg._id,
+      title: pkg.title,
+      subtitle: pkg.subtitle || "",
+      intro: pkg.intro,
+      cover: pkg.cover || "",
+      iconPath: pkg.iconPath || "",
+      gradientFrom: pkg.gradientFrom || "#E0A998",
+      gradientTo: pkg.gradientTo || "#C4956A",
+      contentType: pkg.contentType || "chapters",
+      ageGroups: pkg.ageGroups || [],
+      priceFen: pkg.priceFen || Math.round(Number(pkg.price || 9.9) * 100),
+      priceText: ((pkg.priceFen || Math.round(Number(pkg.price || 9.9) * 100)) / 100).toFixed(2),
+      chapterCount: chapters.length,
+      outline,
+    },
+    unlocked,
+    isMember: entitlement.isMember,
+    lastChapterIndex: Number(prog.lastChapterIndex) || 0,
+  };
+}
+```
+`readable` 的判定就是权限模型的落点：`unlocked || chapter.isFree`。整包免费（`pkg.isFree: true`）、会员、单包已购三者任一成立则 `unlocked` 为 true，全部章节可读；否则只有 `isFree: true` 的章节可读。当前 11 个包每包首章免费，等于每个包都有一章试读。`purchaseType` 已废除，11 个包全部支持单买。
+### 3.4 `chapter` action——单章正文
+```js
+async function getChapter(event) {
+  const id = String(event.id || "").trim();
+  const index = Number.parseInt(event.index, 10);
+  if (!id || !Number.isInteger(index) || index < 0) {
+    return { chapter: null, message: "参数不合法" };
+  }
+  const openid = getRequesterOpenid();
+  const entitlement = await getEntitlement(openid);
+  const doc = await db.collection(PACKAGE_COLLECTION).doc(id).get().catch(() => null);
+  const pkg = doc && doc.data ? doc.data : null;
+  if (!pkg || pkg.status !== "published") return { chapter: null };
+  const chapters = Array.isArray(pkg.chapters) ? pkg.chapters : [];
+  const chapter = chapters[index];
+  if (!chapter) return { chapter: null };
+  const unlocked = canReadPackage(pkg, entitlement);
+  const readable = unlocked || Boolean(chapter.isFree);
+  if (!readable) {
+    // 锁定章节只返回标题和小节标题，正文不出边界
+    return {
+      chapter: {
+        index,
+        title: chapter.title,
+        sections: (chapter.sections || []).map((s) => ({ heading: s.heading, content: "" })),
+      },
+      locked: true,
+      priceText: ((pkg.priceFen || 990) / 100).toFixed(2),
+    };
+  }
+  return {
+    chapter: {
+      index,
+      title: chapter.title,
+      sections: (chapter.sections || []).map((s) => ({
+        heading: s.heading,
+        content: s.content || "",
+      })),
+    },
+    locked: false,
+    packageTitle: pkg.title,
+    chapterCount: chapters.length,
+    hasPrev: index > 0,
+    hasNext: index < chapters.length - 1,
+    nextReadable: index < chapters.length - 1
+      ? (unlocked || Boolean(chapters[index + 1].isFree))
+      : false,
+  };
+}
+```
+`nextReadable` 是为了在阅读器底部做「下一章锁定」的提示——试读用户读完首章点「下一章」，直接看到付费引导而不是跳过去再被拦，体验上少一次跳转。
+### 3.5 `progress` action——阅读进度
+```js
+async function saveProgress(event) {
+  const openid = getRequesterOpenid();
+  if (!openid) return { success: false };
+  const id = String(event.id || "").trim();
+  const index = Number.parseInt(event.index, 10);
+  if (!id || !Number.isInteger(index) || index < 0) return { success: false };
+  const _ = db.command;
+  const current = await getEntitlement(openid);
+  const prev = current.progress[id] || {};
+  const readChapters = Array.isArray(prev.readChapters) ? prev.readChapters.slice() : [];
+  if (readChapters.indexOf(index) < 0) readChapters.push(index);
+  await db.collection(PROFILE_COLLECTION).doc(openid).update({
+    data: {
+      [`packageProgress.${id}`]: {
+        lastChapterIndex: index,
+        readChapters: readChapters.sort((a, b) => a - b),
+        updatedAt: db.serverDate(),
+      },
+    },
+  }).catch(async () => {
+    // 档案文档不存在时（理论上会员/购买流程已建过）用 set 兜底
+    await db.collection(PROFILE_COLLECTION).doc(openid).set({
+      data: {
+        openid,
+        packageProgress: {
+          [id]: { lastChapterIndex: index, readChapters, updatedAt: db.serverDate() },
+        },
+      },
+    });
+  });
+  entitlementCache.delete(openid);
+  return { success: true };
+}
+```
+用 `packageProgress.${id}` 的点路径更新，只覆盖当前包的进度节点，不影响其他包。写完清掉本实例的权益缓存，避免同实例内后续请求读到旧进度。
+### 3.6 `validIds` action——给 `payService` 用
+```js
+async function getValidIds() {
+  const res = await db.collection(PACKAGE_COLLECTION)
+    .where({ status: "published" })
+    .field({ _id: true })
+    .limit(100)
+    .get();
+  return { ids: (res.data || []).map((item) => item._id) };
+}
+```
+这个 action 不校验调用者身份——返回的只是包 ID 列表，不含内容，且前端本来就能通过 `list` 拿到。设计成独立 action 是为了让 `payService` 用最小代价查询（详见第五章）。
+### 3.7 入口路由
+```js
+exports.main = async (event = {}) => {
+  try {
+    switch (event.action) {
+      case "list":     return { success: true, ...(await listPackages()) };
+      case "detail":   return { success: true, ...(await getPackageDetail(event)) };
+      case "chapter":  return { success: true, ...(await getChapter(event)) };
+      case "progress": return await saveProgress(event);
+      case "validIds": return { success: true, ...(await getValidIds()) };
+      default:
+        return { success: false, message: "不支持的专题包操作" };
+    }
+  } catch (error) {
+    console.error("packageData failed", error);
+    return {
+      success: false,
+      message: error && (error.message || error.errMsg) ? error.message || error.errMsg : String(error),
+    };
+  }
+};
+```
+返回结构和错误处理风格对齐现有 `topicData`——统一 `{ success, ...payload }`，异常统一 catch 后返回 `success: false` 加 message，不抛到前端。
+---
+## 四、`payService` 动态包 ID
+### 4.1 `VALID_PACKAGE_IDS` 动态化
+现有代码（`cloudfunctions/payService/index.js` 第 31 行）：
+```js
+const VALID_PACKAGE_IDS = ["bedtime", "kindergarten", "school"];
+function isValidPackageId(packageId) {
+  return VALID_PACKAGE_IDS.indexOf(packageId) >= 0;
+}
+```
+> ⚠️ **这是一个线上阻断级 BUG，优先级高于本文档其他所有改动。** 这三个 ID 是早期 PDF 包的标识，与 `communication_packages` 集合中的实际包 ID（`emotion`/`homework`/`screen`）完全对不上。当前传 `emotion` 下单会命中 `throw new Error("缺少或不支持的 itemId")`，**单包购买链路完全不可用，一单都卖不出去**。修复方式即下方的动态读取方案，或最低限度先把数组改成正确的 10 个 ID。
+实现为带缓存和兜底的异步读取：
+```js
+const PACKAGE_COLLECTION = "communication_packages";
+// 兜底列表：集合不存在或查询失败时使用
+const FALLBACK_PACKAGE_IDS = [
+  "emotion", "homework", "habit", "screen", "social",
+  "money", "routine", "separation", "safety", "interest"
+];
+const PACKAGE_IDS_CACHE_TTL = 5 * 60 * 1000;
+let packageIdsCache = null;
+let packageIdsCacheTime = 0;
+async function getValidPackageIds() {
+  const now = Date.now();
+  if (packageIdsCache && now - packageIdsCacheTime < PACKAGE_IDS_CACHE_TTL) {
+    return packageIdsCache;
+  }
+  let ids = FALLBACK_PACKAGE_IDS;
+  try {
+    const res = await db.collection(PACKAGE_COLLECTION)
+      .where({ status: "published" })
+      .field({ _id: true })
+      .limit(100)
+      .get();
+    const fetched = (res.data || []).map((item) => item._id).filter(Boolean);
+    if (fetched.length) {
+      // 与兜底列表求并集，保证过渡期旧包 ID 一定有效
+      ids = Array.from(new Set([...FALLBACK_PACKAGE_IDS, ...fetched]));
+    }
+  } catch (error) {
+    console.warn("load valid package ids failed, use fallback", error);
+  }
+  packageIdsCache = ids;
+  packageIdsCacheTime = now;
+  return ids;
+}
+async function isValidPackageId(packageId) {
+  const ids = await getValidPackageIds();
+  return ids.indexOf(packageId) >= 0;
+}
+```
+改成异步后，调用点需要同步调整。共有三处：
+`createPurchaseOrder` 中 `if (!isValidPackageId(itemId))` 改为 `if (!(await isValidPackageId(itemId)))`——该函数本身已是 `async`，直接加 `await`。`purchaseType` 已废除，不需要 member_only 的单买校验。
+`grantEntitlement` 中 `if (itemType === "package" && isValidPackageId(itemId))` 改为 `if (itemType === "package" && (await isValidPackageId(itemId)))`——该函数已是 `async`。
+`getUserPurchases` 中 `const unlockedPackages = isMember ? VALID_PACKAGE_IDS.slice() : ...` 改为 `const unlockedPackages = isMember ? (await getValidPackageIds()).slice() : ...`——该函数已是 `async`。
+5 分钟缓存的取舍：新导入一个专题包后最多 5 分钟内，某些云函数实例可能还不认这个新 ID，导致该包的下单被拒。运营侧的应对是「导入后等 5 分钟再上首页曝光」，或者在 `payService` 加一个 `refreshPackageIds` 的管理 action 手动清缓存。考虑到专题包是季度更新节奏，5 分钟延迟完全可接受，不必额外做主动失效。
+`FALLBACK_PACKAGE_IDS` 与查询结果取并集而非替换，确保在集合查询失败时支付链路不中断。
+### 4.2 `PACKAGE_PRODUCT_TEMPLATE` 的价格来源
+默认价格写死 990 分。`createPurchaseOrder` 支持 `event.goodsPrice` 覆盖（走 `normalizePriceFen`），前端下单时从 `packageData` 的 `detail` 返回中取 `priceFen` 传过来，就能支持「不同专题包定价不同」。默认值 990 只在前端没传时兜底。
+需要注意 `normalizePriceFen` 要求正整数，而 `packageData` 已经保证 `priceFen` 是整数（`Math.round`），链路自洽。
+另外 `buildPackageProduct` 里 `name: \`${packageId} 专题包\`` 会生成 `emotion 专题包` 这种英文 ID 拼中文的订单名，观感差。建议从 `event.sourceTitle` 取中文标题：
+```js
+function buildPackageProduct(packageId, displayName) {
+  return {
+    ...PACKAGE_PRODUCT_TEMPLATE,
+    itemId: packageId,
+    name: displayName ? `${displayName}` : `${packageId} 专题包`,
+  };
+}
+```
+调用处 `product = buildPackageProduct(itemId, sourceTitle)`。`sourceTitle` 在 `createPurchaseOrder` 里已经解析出来了，直接复用，无额外成本。
+### 4.3 支付签名与发货回调
+支付签名 `createSignData`、发货回调 `handleVirtualPayDelivery`、订单集合结构、`upsertPackageProfile` 的 `unlockedPackages` 合并逻辑保持不变。双 SKU 模型按 `itemType` 分流，专题包这条分支已经完备。
+---
+## 五、前端页面设计
+### 5.1 页面清单与路由
+`miniprogram/app.json` 的 `pages` 数组包含三个专题包页面路径：
+```json
+"pages/package-list/index",
+"pages/package-detail/index",
+"pages/package-reader/index"
+```
+三者都不是 tabBar 页面，通过 `wx.navigateTo` 跳转。注意 `app.json` 里已有 `"lazyCodeLoading": "requiredComponents"`，页面不引入自定义组件的话无需额外配置。
+完整的 `app.json` pages 数组（含首页方案的训练计划页面）见《项目总览与技术架构》。
+### 5.2 首页 C 区：专题包横滑
+首页 C 区为专题包横滑卡片，数据来源为 `packageData` 云函数 `list` action。
+`pages/index/index.js` 的核心实现：
+```js
+// 专题包数据从云端拉取
+data: {
+  packageCards: [],          // 专题包卡片数据
+  packageLoading: true,
+  // …现有字段不变
+}
+loadPackages() {
+  cloud.callFunction({
+    name: "packageData",
+    data: { action: "list" },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (!result.success) throw new Error(result.message || "获取专题包失败");
+      // 首页只展示前 4 个，全部走列表页
+      this.setData({
+        packageCards: (result.packages || []).slice(0, 4),
+        packageLoading: false,
+      });
+    })
+    .catch((error) => {
+      console.warn("load packages failed", error);
+      // 降级：云函数未部署时显示空列表
+      this.setData({
+        packageCards: [],
+        packageLoading: false,
+      });
+    });
+}
+```
+`onLoad` 和 `onShow` 都调用 `loadPackages`——`onShow` 是必要的，用户从详情页购买后返回首页，卡片上的锁标需要刷新。
+点击处理改为统一进详情页，不再在首页做付费判断：
+```js
+onPackageTap(event) {
+  const id = event.currentTarget.dataset.id;
+  wx.navigateTo({ url: `/pages/package-detail/index?id=${encodeURIComponent(id)}` });
+}
+```
+这是明确的体验设计：点击专题包卡片统一先进详情页，用户能看到简介、章节目录、试读首章，再决定买不买。转化漏斗从「点击→了解→试读→购买」，对 9.9 元的低客单价商品来说，先给价值感知再要钱是更合理的路径。
+`pages/index/index.wxml` 的 C 区模板：
+```xml
+<view class="section-heading">
+  <view class="heading-line"></view>
+  <text>沟通专题</text>
+  <view class="heading-more" bindtap="openPackageList">查看全部 ›</view>
+</view>
+<scroll-view class="pkg-scroll" scroll-x enhanced show-scrollbar="{{false}}">
+  <view class="pkg-row">
+    <view
+      wx:for="{{packageCards}}"
+      wx:key="_id"
+      class="pkg-card"
+      style="background:linear-gradient(155deg,{{item.gradientFrom}},{{item.gradientTo}})"
+      data-id="{{item._id}}"
+      bindtap="onPackageTap"
+    >
+      <image class="pkg-icon" src="{{item.cover || item.iconPath}}" mode="aspectFit" />
+      <view class="pkg-title">{{item.title}}</view>
+      <view class="pkg-subtitle">{{item.subtitle}}</view>
+      <view wx:if="{{item.unlocked}}" class="pkg-badge unlocked">✓ 已解锁</view>
+      <view wx:else class="pkg-badge">🔒 ¥{{item.priceText}}</view>
+    </view>
+  </view>
+</scroll-view>
+```
+样式类 `.pkg-scroll` / `.pkg-row` / `.pkg-card` / `.pkg-icon` / `.pkg-title` / `.pkg-subtitle` 与首页推荐卡片风格一致，新增 `.pkg-badge` 和 `.heading-more` 两个类。卡片背景用内联 `style` 渲染渐变色，取代旧的 `.pkg-card.coral` / `.pkg-card.blue` / `.pkg-card.purple` 三套 CSS 类。
+`.pkg-badge` 样式建议：绝对定位在卡片右上角，`font-size: 22rpx`，未解锁态用半透明白底加深色文字，已解锁态用 `#27A866` 绿底白字，会员专享态用 `#B8896E` 棕底白字。
+### 5.3 `pages/package-list`——专题包列表页
+纵向列表，每条一张卡片。数据源同样是 `packageData` 的 `list` action，不做分页（11 个包的量级一次拉完）。
+每张卡片展示：渐变封面区（用 `gradientFrom`/`gradientTo` 渲染 `linear-gradient(155deg, ...)` 背景 + 白色标题）、标题、副标题、适用年龄段标签（`ageGroups` 渲染成 `3-6岁` / `7-9岁` / `10-12岁` 小标签）、章节数、状态区。状态区有三种形态：未解锁显示 `🔒 ¥9.90 · 首章试读`；已解锁未读显示 `✓ 已解锁 · 开始阅读`；已解锁有进度显示 `已读 8/30 章 · 继续阅读` 并带一条进度条。卡片上同时展示「N章 · M个实战场景」，体现 2.1.2 节的产品定义。
+点击整卡进详情页。已解锁且有进度的卡片，点击后直接跳阅读器的 `lastChapterIndex` 章：
+```js
+onCardTap(event) {
+  const { id, unlocked, readCount, lastIndex } = event.currentTarget.dataset;
+  if (unlocked && readCount > 0) {
+    wx.navigateTo({ url: `/pages/package-reader/index?id=${id}&index=${lastIndex}` });
+    return;
+  }
+  wx.navigateTo({ url: `/pages/package-detail/index?id=${id}` });
+}
+```
+页面顶部加一条会员引导条：非会员时显示「开通会员 ¥59 解锁全部 11 个专题，比单买省 ¥49」，点击进 `activation`。这是把单包 9.9 的流量往 59 会员上导的关键位置——用户在列表页看到 11 个包均标价 9.9，天然会算「买 6 个就回本」这笔账（59 ÷ 9.9 ≈ 6）。省下的金额动态计算：`包数 * 9.9 - 59`，取整后展示。
+### 5.4 `pages/package-detail`——专题包详情页
+页面结构从上到下：封面头图区（封面图 + 标题 + 副标题 + 年龄段标签）、简介区（`intro` 全文）、章节目录区、底部固定操作栏。
+章节目录每一行展示：章节序号、章节标题、小节标题串（`sectionHeadings.join(' · ')`，灰色小字）、右侧状态图标。状态图标三态——可读且已读显示对勾，可读未读显示右箭头，不可读显示锁形图标。
+点击行为按 `readable` 分流：
+```js
+onChapterTap(event) {
+  const { index, readable } = event.currentTarget.dataset;
+  if (readable) {
+    wx.navigateTo({
+      url: `/pages/package-reader/index?id=${this.data.packageId}&index=${index}`,
+    });
+    return;
+  }
+  this.showPurchaseSheet();
+}
+```
+底部固定操作栏按 `unlocked` 切换。已解锁时是一个「开始阅读 / 继续阅读第 N 章」的主按钮。未解锁时是双按钮布局：左侧次要按钮「免费试读第一章」，右侧主按钮「¥9.90 解锁本专题」。次要按钮下方一行小字「或开通会员 ¥59 解锁全部专题」，可点击进 `activation`。
+三个价格入口并列，是刻意的设计：试读降低决策门槛，单包购买承接低意愿用户，会员承接高意愿用户。三条路径都不隐藏，让用户自己选。
+### 5.5 `pages/package-reader`——章节阅读器
+这是内容消费的核心页面，设计上要「像看书，不像看网页」。
+顶部是一条进度条 + 「第 N 章 / 共 M 章」的文字指示。正文区按 `sections` 渲染，每个 section 是「小标题 + 正文段落」。小标题用 `.section-heading` 风格（左侧色条 + 加粗），正文用 `font-size: 32rpx; line-height: 1.9; color: #4a3d38; letter-spacing: 0.5rpx`，段间距 `28rpx`。行高 1.9 是长文阅读的舒适值，比小程序默认的 1.5 要松。
+正文里的换行处理是个必须解决的问题。实测现有 3 个包的 section `content` 全部是单段连续长文本，一个换行符都没有，最长的 381 字。新增章节必须在写作阶段就用 `\n\n` 分段。直接渲染出来是一堵密不透风的字墙，在手机窄屏上阅读体验极差。
+约定用 `\n\n` 作为段落分隔符，前端 `content.split(/\n{2,}/)` 后逐段渲染 `<text>`，段间距 `28rpx`。这要求内容侧回头给 `communication_packages.json` 的每个 `content` 补分段。可以用脚本按语义单元做初切（比如遇到「常见误区有三个：」「另一个常见误判是」这类转折句起新段），但必须人工过一遍——机械按句号切会把递进关系割裂。这一步的工作量大约 2-3 小时，放在实施节奏的第一步。
+底部是翻页栏：左「上一章」、中间「目录」、右「下一章」。「目录」点击弹出半屏章节列表，快速跳章。「下一章」的行为按 `nextReadable` 分流——可读则跳，不可读则弹购买浮层。
+进入页面即上报进度：
+```js
+onLoad(options) {
+  const id = decodeURIComponent(options.id || "");
+  const index = Number.parseInt(options.index, 10) || 0;
+  this.setData({ packageId: id, chapterIndex: index });
+  this.loadChapter(id, index);
+}
+loadChapter(id, index) {
+  cloud.callFunction({ name: "packageData", data: { action: "chapter", id, index } })
+    .then((response) => {
+      const result = response.result || {};
+      if (!result.success || !result.chapter) throw new Error("章节读取失败");
+      const paragraphs = (result.chapter.sections || []).map((s) => ({
+        heading: s.heading,
+        paragraphs: String(s.content || "").split(/\n{2,}/).filter(Boolean),
+      }));
+      this.setData({ /* … */ });
+      if (!result.locked) this.reportProgress(id, index);
+    })
+    .catch(/* … */);
+}
+reportProgress(id, index) {
+  cloud.callFunction({ name: "packageData", data: { action: "progress", id, index } })
+    .catch((error) => console.warn("report progress failed", error));
+}
+```
+进度上报失败静默处理，不打扰用户。
+章节切换不用 `navigateTo`（会无限压栈），用 `redirectTo` 或者干脆不跳页、直接在当前页 `setData` 换内容并 `wx.pageScrollTo({ scrollTop: 0 })`。推荐后者——切章无页面切换动画，体验更像翻书，也省掉页面栈管理。
+### 5.6 `pages/activation` 扩展：支持单包购买
+现有 `PAYMENT_PRODUCT` 只有 `membership` 一项。扩展为支持 `package`：
+```js
+const PAYMENT_PRODUCT = {
+  membership: {
+    itemType: "membership",
+    itemId: "",
+    productId: "hot_topics_life",
+    goodsPrice: 1,          // 测试价，上线前改 5900
+  },
+  package: {
+    itemType: "package",
+    productId: "topic_package",
+    // itemId 和 goodsPrice 从页面参数动态传入
+  },
+};
+```
+前端跳转开通页时传 `mode=package` + `packageId` + `priceFen`。11 个包全部支持单买，不需要 member_only 分支。
+`onLoad` 解析新参数：
+```js
+onLoad(options) {
+  const mode = decodeURIComponent(options.mode || "membership");   // membership | package
+  const packageId = decodeURIComponent(options.packageId || "");
+  const priceFen = Number.parseInt(options.priceFen, 10) || 990;
+  const sourceKey = decodeURIComponent(options.sourceKey || "");
+  const sourceTitle = decodeURIComponent(options.sourceTitle || "");
+  this.setData({ mode, packageId, priceFen, sourceKey, sourceTitle, /* … */ });
+  this.loadStatus();
+  this.loadRecords();
+}
+```
+`startPurchase` 里按 `mode` 组装商品参数：
+```js
+const isPackage = this.data.mode === "package";
+const product = isPackage
+  ? {
+      itemType: "package",
+      itemId: this.data.packageId,
+      productId: PAYMENT_PRODUCT.package.productId,
+      goodsPrice: this.data.priceFen,
+    }
+  : PAYMENT_PRODUCT.membership;
+```
+后续的 `createPurchaseOrder` → `createPaySign` → `requestVirtualPayment` 流程完全复用，不需要改。
+`waitForMembershipActivated` 需要泛化——单包购买后 `isMember` 仍是 false，轮询会一直失败。改为按 mode 判定：
+```js
+checkActivated(status) {
+  if (this.data.mode === "package") {
+    return (status.unlockedPackages || []).indexOf(this.data.packageId) >= 0;
+  }
+  return status.purchased;
+}
+```
+对应地 `normalizeMembershipStatus` 要把 `result.unlockedPackages` 透传出来（现在被丢弃了）。
+`MEMBERSHIP_CACHE_KEY` 的本地缓存只对会员有意义，单包购买不写这个缓存——单包解锁态由 `packageData` 每次请求实时判定，不做前端缓存，避免缓存和实际权益不一致。
+另一个更轻的方案是不复用 `activation` 页面，而在 `package-detail` 页内用一个底部浮层完成购买。好处是不跳页、转化路径更短；坏处是支付逻辑要在两个地方维护。考虑到 `activation` 页已经有完整的 SDK 版本检查、错误分类、轮询同步逻辑，复用它更稳妥。**建议先复用 `activation`，跑通后如果发现跳页损失转化，再考虑内联浮层。**
+### 5.7 支付回流的解锁刷新
+用户从 `activation` 支付成功返回 `package-detail`，需要立刻看到解锁态。在 `package-detail` 的 `onShow` 里做：
+```js
+onShow() {
+  if (this._loaded && !this.data.unlocked) {
+    // 之前是锁定态，回到页面时重新拉一次，带 skipCache 绕过云函数侧 60s 缓存
+    this.loadDetail(this.data.packageId, true);
+  }
+}
+```
+这与 `topic-detail` 现有的 `onShow` 重新拉取逻辑是同一个套路（见 `pages/topic-detail/index.js` 第 22-26 行的注释）。`skipCache` 参数需要在 `packageData` 的 `getEntitlement` 里支持：
+```js
+async function getEntitlement(openid, skipCache = false) {
+  if (!openid) return { isMember: false, unlockedPackages: [], progress: {} };
+  if (!skipCache) {
+    const cached = entitlementCache.get(openid);
+    if (cached && Date.now() - cached.time < ENTITLEMENT_CACHE_TTL) return cached.value;
+  }
+  // …查库并写缓存
+}
+```
+即便如此，虚拟支付的发货回调是异步的，可能存在 1-3 秒延迟。`activation` 页现有的 `waitForMembershipActivated` 轮询（4 次，间隔 900ms）已经覆盖了这个窗口，泛化后同样适用于单包。
+---
+## 六、样式与视觉规范
+沿用小程序现有的暖色调体系，不引入新的色板。
+主色沿用 `#C4956A`（暖棕色，tabBar selectedColor）和 `#C4956A`（section heading 色条）。每个专题包拥有独立的渐变配色（`gradientFrom`/`gradientTo`），取代了旧的三色 tone 体系。正文文字色 `#4a3d38`，次要文字 `#907d74`。已解锁徽标用 `#27A866` 绿。会员专享徽标用 `#B8896E` 棕。锁定态遮罩用 `rgba(255, 249, 245, 0.92)` 半透明覆盖，与全局背景 `#FFF9F5` 同色系。
+页面根容器统一加 `page-shell` 类（`app.wxss` 里已定义），卡片统一用 `soft-card` 类，保持圆角和阴影一致。
+阅读器正文的排版参数在 6.5 节已给出。额外注意：小节标题之间要有 `48rpx` 的上边距、`20rpx` 的下边距，视觉上把三个小节明确分块。章节标题用 `40rpx` 加粗，在正文区顶部单独一行。
+---
+## 七、数据导入与上线流程
+### 7.1 依赖 `importData` 的标准路径
+`importData` 云函数尚未落地（目录下只有 `data/`）。标准路径是先按 `通用数据导入工具技术方案.md` 完成 `importData` 的 `index.js`、`package.json`、`config.json`、`developer-openids.js`，再按下篇 14.3 节导入专题包。
+导入步骤：补齐 `communication_packages.json` 的 `subtitle`/`gradientFrom`/`gradientTo`/`parts`/`partTopics`/`priceFen` 字段 → 新建 `communication_packages.schema.json`（2.3 节内容）→ 微信开发者工具右键 `cloudfunctions/importData` 上传部署 → `pages/developer-import` 刷新 → 点「专题包内容」的导入按钮。
+`importData` 用 `doc(_id).set()` 的 upsert 语义，重复导入安全，内容迭代直接改 JSON 重新导入即可。
+### 7.2 导入前自检脚本
+由于 schema 校验覆盖不到 `sections` 内部，建议在本地跑一段自检再导入。放在 `scripts/check-packages.js`：
+检查项包括——`_id` 唯一且为小写英文；`chapters` 非空（`contentType: "chapters"` 时）；每章 `sections` 至少 2 个；每个 section 的 `heading` 和 `content` 非空且 `content` 长度在 150-450 字之间（手册 12.5 节要求 200-400 字，实测现有数据分布在 137-381 字，下限放宽到 150 并对越界项告警）；每包恰好一章 `isFree: true`（首章）；`sortOrder` 唯一；`priceFen` 是正整数；每章 `part` 值必须出现在该包的 `parts` 数组中；`partTopics` 的每个 topicId 真实存在且全站并集覆盖 214 道付费话题；`gradientFrom` 和 `gradientTo` 为合法的 `#RRGGBB` 色值；`ageGroups` 值在 `["3-6","7-9","10-12"]` 范围内。
+这个脚本同时负责段落分隔的检查——实测现有 3 个包的 section `content` **全部不含任何换行符**，都是单段连续长文本。脚本应扫描出所有长度超过 200 字且不含 `\n\n` 的 section，输出待分段清单供人工处理。这是上线前必须完成的一步，否则阅读器里会是一堵字墙。
+### 7.3 不依赖 `importData` 的降级路径
+如果 `importData` 尚未落地，可以临时在 `packageData` 云函数里加一个 `seed` action：把 `communication_packages.json` 复制一份到 `cloudfunctions/packageData/data/`，`seed` action 读文件后逐条 `doc(_id).set()` 写入。
+这是临时方案，`importData` 落地后应删除 `seed` action 和 `packageData/data/` 目录，避免两套导入并存导致数据不一致。
+### 7.4 上线检查清单
+数据侧——`communication_packages` 集合已创建且有 11 条 `status: "published"` 记录；每条的 `_id` 是小写英文短词；每条首章 `isFree: true`；`priceFen` 均为 990；`parts`/`partTopics` 已配置；`gradientFrom`/`gradientTo` 均为合法色值。
+云函数侧——`packageData` 已部署且 `list`/`detail`/`chapter`/`progress`/`validIds` 五个 action 均可调用；`payService` 已重新部署且 `getValidPackageIds` 能读到新集合（可通过调 `getUserPurchases` 用会员账号验证 `unlockedPackages` 是否包含全部 11 个包 ID）。
+前端侧——`app.json` 已注册三个新页面路径；首页专题卡片区能正常渲染且点击进详情页；未购买账号只能读首章、点第二章弹购买；购买后返回详情页自动解锁；阅读进度能正确记录并在列表页展示。
+权限侧——用测试账号验证三种身份的可见范围：游客（只能读各包首章）、单包已购（该包全解锁、其他包仍只有首章）、会员（全部包全解锁）。额外验证话题解锁：买了 emotion 包的账号，在话题库中该包 `partTopics` 覆盖的 35 道题应全部可读且不显示锁图标，其他主题的付费话题仍锁定。这是最容易出错的地方，必须逐一手测。
+---
+## 八、核心文件说明
+### 专题包页面文件
+| 文件路径 | 说明 |
+|---|---|
+| `miniprogram/pages/package-list/index.*` | 专题包列表页（全部专题包展示） |
+| `miniprogram/pages/package-detail/index.*` | 专题包详情页（简介 + 章节目录） |
+| `miniprogram/pages/package-reader/index.*` | 章节阅读器页（单章正文阅读） |
+### 云函数文件
+| 文件路径 | 说明 |
+|---|---|
+| `cloudfunctions/packageData/index.js` | 专题包读取云函数主入口（5 个 action） |
+| `cloudfunctions/packageData/package.json` | 依赖声明（wx-server-sdk） |
+| `cloudfunctions/packageData/config.json` | 云函数配置 |
+### 数据与脚本
+| 文件路径 | 说明 |
+|---|---|
+| `cloudfunctions/importData/data/communication_packages.json` | 专题包内容数据 |
+| `cloudfunctions/importData/data/communication_packages.schema.json` | 专题包导入校验规则 |
+| `scripts/check-packages.js` | 导入前内容自检脚本 |
+### 与其他模块关联的文件
+| 文件路径 | 说明 |
+|---|---|
+| `cloudfunctions/payService/index.js` | `VALID_PACKAGE_IDS` 动态读取 + 缓存；`buildPackageProduct` 支持中文商品名 |
+| `miniprogram/pages/index/index.js` | C 区专题包横滑：`loadPackages`/`onPackageTap`/`openPackageList` |
+| `miniprogram/pages/activation/index.js` | 支持 `mode: "package"` 单包购买 |
+---
+## 九、开发节奏
+**第一步（数据就绪）**：补齐 `communication_packages.json` 的缺失字段，写 `check-packages.js` 自检脚本跑一遍，处理 `content` 的段落分隔。这一步不依赖任何代码，可以最先做。11 个包共 278 章约 834 个 section。**emotion 与 homework 两个包已完成**：均为 30 章，分别约 2.47 万字、2.35 万字，并已将全部 35 / 50 道实战话题按章节实际内容逐题编排；其余 9 包尚余 218 章净增内容，按同等密度估算约 15 万字，需单独立项排期。
+**第二步（后端打通）**：写 `packageData` 云函数五个 action，实现 `payService` 的动态 ID。部署后用云开发控制台的云函数测试面板直接调 `list`/`detail`/`chapter`，验证权限裁剪是否生效。这一步可以在没有任何前端页面的情况下完整验证。预计 4-5 小时。
+**第三步（阅读链路）**：做 `package-detail` + `package-reader` 两个页面，先不接购买，用一个已经在 `unlockedPackages` 里的测试账号验证完整阅读体验。预计 6-8 小时。
+**第四步（付费闭环）**：实现 `activation` 支持单包，接通详情页的购买按钮，用测试账号跑通「未购买→试读→购买→解锁」全链路。预计 3-4 小时。
+**第五步（入口与验收）**：实现首页 C 区专题包横滑和新增 `package-list` 页。预计 3-4 小时。
+**第六步（验收）**：按 8.4 节的检查清单逐项验证，重点是三种身份的权限矩阵。预计 2 小时。
+总计约 24-30 小时。
+---
+## 十、遗留问题与后续演进
+**封面图缺失。** 11 个包均没有 `cover`，需要设计出图。方案上用 `cover || iconPath` 双兜底，不阻塞上线，但视觉完成度会打折。当前列表页和首页均用渐变色封面替代图片，待出图后补充。
+**收藏与笔记。** `userData` 云函数支持话题收藏，专题包章节暂不支持。如果后续要加，可以在 `userData` 里复用 `toggleFavorite` 的模式，`favoriteId` 用 `pkg:{packageId}:{chapterIndex}` 的复合格式。
+**搜索。** 专题包正文没有进入任何搜索索引。话题库的搜索走 `topicData` 的 `getList` 正则匹配，专题包正文动辄几万字，用同样的正则方案性能不可接受。如果要做，应该在导入时抽取每章的关键词写入独立字段，搜索只匹配关键词字段。
+**试读章节的粒度。** 当前是「首章全免费」。如果转化数据不理想，可以改为「首章 + 每章的第一个小节（常见误区）免费」——这样每个包都能让用户看到 8 个「误区」，制造更强的「我确实有这些问题」的共鸣，再用「推荐做法」和「话术示例」做付费点。这个改动只需要在 `getChapter` 里加一层 section 级裁剪，数据侧不用动。
+**`VALID_PACKAGE_IDS` 缓存的一致性。** 5 分钟缓存在季度更新节奏下没问题，但如果后续变成周更，建议加一个 `payService` 的 `refreshPackageIds` 管理 action，导入完成后由 `developer-import` 页面自动调一次。

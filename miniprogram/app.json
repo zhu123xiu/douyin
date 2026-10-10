@@ -1,0 +1,80 @@
+{
+  "pages": [
+    "pages/index/index",
+    "pages/topic-library/index",
+    "pages/topic-detail/index",
+    "pages/mine/index"
+  ],
+  "subPackages": [
+    {
+      "name": "package",
+      "root": "pages/package",
+      "pages": [
+        "package-list/index",
+        "package-chapter/index",
+        "package-reader/index"
+      ]
+    },
+    {
+      "name": "training",
+      "root": "pages/training",
+      "pages": [
+        "training-plan/index",
+        "theme-week-list/index"
+      ]
+    },
+    {
+      "name": "extra",
+      "root": "pages/extra",
+        "pages": [
+          "activation/index",
+          "favorites/index",
+          "developer-import/index",
+          "feedback/index",
+          "about/index"
+        ]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["package"]
+    }
+  },
+  "window": {
+    "backgroundColor": "#FFF9F5",
+    "backgroundTextStyle": "light",
+    "navigationBarBackgroundColor": "#FFF9F5",
+    "navigationBarTitleText": "亲子对话",
+    "navigationBarTextStyle": "black"
+  },
+  "tabBar": {
+    "color": "#B4AEAA",
+    "selectedColor": "#C4956A",
+    "backgroundColor": "#FFFFFF",
+    "borderStyle": "white",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "images/icons/home.png",
+        "selectedIconPath": "images/icons/home-active.png"
+      },
+      {
+        "pagePath": "pages/topic-library/index",
+        "text": "话题库",
+        "iconPath": "images/icons/goods.png",
+        "selectedIconPath": "images/icons/goods-active-green.png"
+      },
+      {
+        "pagePath": "pages/mine/index",
+        "text": "我的",
+        "iconPath": "images/icons/usercenter.png",
+        "selectedIconPath": "images/icons/usercenter-active.png"
+      }
+    ]
+  },
+  "sitemapLocation": "sitemap.json",
+  "style": "v2",
+  "lazyCodeLoading": "requiredComponents"
+}

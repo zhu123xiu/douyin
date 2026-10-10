@@ -1,0 +1,178 @@
+# UI 设计规范文档
+版本：v1.0　日期：2026-08-09
+本文档记录「亲子对话」小程序的视觉设计规范，重写项目时以此为 UI 还原依据。规范从现有代码的 WXSS 中提取。
+---
+## 一、全局色彩体系
+### 1.1 基础色
+| 用途 | 色值 | 说明 |
+|---|---|---|
+| 页面背景 | `#FFF9F5` | 暖白，app.json window.backgroundColor |
+| 导航栏背景 | `#FFF9F5` | 同页面背景 |
+| 导航栏文字 | black | app.json navigationBarTextStyle |
+| 卡片背景 | `#FFFFFF` | 白色卡片 |
+| 主文字 | `#30231E` | 深棕黑（hero 标题） |
+| 次要文字 | `#907D74` | 灰棕（副标题等） |
+| 辅助文字 | `#9F948E` / `#A59A94` | 更浅的灰棕（加载/空状态） |
+| 错误文字 | `#A96751` | 暖红棕 |
+| 错误背景 | `#FFF0E8` | 浅珊瑚 |
+### 1.2 Tone 色彩体系
+三个年龄段各有一套 tone 色彩，贯穿全页面：
+| Tone | 年龄段 | 主色 | 浅背景 | 边框/选中 |
+|---|---|---|---|---|
+| coral | 3-6 岁 | `#E0A998` | `#FFF0E9` | `#C4956A` |
+| blue | 7-9 岁 | `#9AB8D6` / `#659ACC` | `#EAF4FF` | `#79ACD6` |
+| purple | 10-12 岁 | `#B8A0D0` / `#8B67BD` | `#F2EAFF` / `#F1E9FF` | `#986FC9` |
+收藏星标：未选中 `#C4956A`（暖棕，背景 `#FFF8EF`），选中 `#C4956A`（暖棕，背景 `#FFF4E8`）。
+### 1.3 功能色
+| 用途 | 色值 |
+|---|---|
+| 错误示范（×） | `#E35C5C` 标题 / `#ED5757` 序号 / `#F06C6C` 左边框 / `#FFF5F4` 分析背景 / `#A45151` 分析文字 |
+| 正确示范（✓） | `#27A866` 标题 / `#28AD69` 序号 / `#36BF79` 左边框 / `#EFFCF5` 分析背景 / `#347C59` 分析文字 |
+| 专家贴士 | `#B86F20` 标题 / `#73543A` 正文 / `#FFF1DC` 背景 |
+| 场景描述标签 | `#CE9E35` |
+| 分割线彩条 | `#C4956A`（section heading 左侧竖线） |
+---
+## 二、字体规范
+| 用途 | 字号 | 字重 | 备注 |
+|---|---|---|---|
+| 页面主标题 | 46rpx | 800 | 如"话题库" |
+| 话题场景标题 | 38rpx | 800 | 详情页 scenario |
+| Hero 标题 | 58rpx | 700 | 首页"亲子对话" |
+| Hero 副标题 | 30rpx | 400 | 首页"用心沟通，陪伴成长" |
+| 区块标题 | 36rpx | 700 | 如"热门话题"、"今日推荐" |
+| 话题列表场景 | 29rpx | 600 | 列表卡片 scenario |
+| 错误/正确区标题 | 32rpx | 800 | "× 错误回答" |
+| 章节卡片标题 | 28rpx | 700 | wrongScripts/rightScripts title |
+| 卡片标签 | 25rpx | 700 | 如"▣ 场景描述" |
+| 正文内容 | 25-26rpx | 400 | scenarioDesc / script content |
+| 分析文字 | 24rpx | 400 | analysis 区域 |
+| 标签文字 | 20-21rpx | 400 | 年龄标签 / 分类标签 |
+| 辅助信息 | 19-24rpx | 400 | 加载提示 / 空状态 / 错误提示 |
+---
+## 三、间距与圆角
+### 3.1 圆角
+| 元素 | 圆角 |
+|---|---|
+| 大卡片（hero / 价格卡 / 表单卡） | 42rpx |
+| 标准卡片（soft-card） | 26-30rpx |
+| 小卡片（script-card） | 26rpx |
+| 脚本内容区 | 16rpx |
+| 搜索框 | 28rpx |
+| 标签（tag / pill） | 18-24rpx |
+| 圆形按钮（星标 / 序号） | 50% |
+### 3.2 间距
+页面外边距：左右默认无统一 padding，各卡片自带 padding。
+常见 padding：卡片 `27-30rpx`，hero `50rpx 42rpx 46rpx 48rpx`。
+卡片间距（gap）：列表 `18rpx`，推荐列表 `20rpx`，脚本列表 `22rpx`。
+section heading 上边距 `48rpx`，下边距 `24rpx`。
+---
+## 四、阴影规范
+两类阴影：
+| 类型 | 值 | 用途 |
+|---|---|---|
+| 标准阴影 | `0 10rpx 26-28rpx rgba(125,96,80,.06-.08)` | 普通卡片、搜索框 |
+ | 专题包卡片阴影 | `0 12rpx 30rpx rgba(98,78,67,.08)` | 首页专题包横滑卡片 |
+ | 收藏按钮阴影 | `0 8rpx 20rpx rgba(120,90,74,.08)` | 详情页收藏圆形按钮 |
+阴影色调偏暖棕（rgba 中 R > G > B），与整体暖色系一致。
+---
+## 五、骨架屏规范
+话题库页首次加载时显示 5 个骨架卡片，每个含 3 条动画条：
+```css
+.sk-line {
+  height: 28rpx;
+  border-radius: 8rpx;
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 37%, #eee 63%);
+  background-size: 400% 100%;
+  animation: sk 1.4s ease infinite;
+}
+@keyframes sk {
+  0% { background-position: 100% 50%; }
+  100% { background-position: 0 50%; }
+}
+```
+三条宽度：30%（sm）/ 85%（lg）/ 55%（md）。
+---
+## 六、组件规范
+### 6.1 `soft-card`（通用卡片）
+白色背景 + 标准阴影 + 大圆角。用于话题列表卡片、推荐卡片、表单卡片、脚本卡片等。
+### 6.2 `tag`（标签）
+两种变体：
+- 默认标签：coral 色调（`bg: #FFF0E8`, `color: #DC8068`），用于 level2 分类
+- 年龄标签（`.tag.age`）：灰棕色调（`bg: #F6F1EE`, `color: #8E827C`），用于年龄段
+各 tone 色下的标签有独立样式（coral/blue/purple 三套）。
+### 6.3 `section-heading`（区块标题）
+左侧 10rpx × 44rpx 竖线（`#C4956A`，圆角 8rpx）+ 右侧文字。用于"沟通专题"、"今日推荐"、"话题列表"等区块标题。
+### 6.4 `script-card`（错误/正确示范卡片）
+卡片左侧 6rpx 彩色边框（wrong: `#F06C6C`，right: `#36BF79`）。
+序号：42rpx 圆形，白字，彩色背景（wrong: `#ED5757`，right: `#28AD69`）。
+内容区：`#FAF8F7` 浅灰背景，圆角 16rpx。
+分析区：浅色背景（wrong: `#FFF5F4`，right: `#EFFCF5`），圆角 16rpx，含"为什么这是错的？/ 为什么这样做是对的？"标签。
+### 6.5 `tips-card`（专家贴士卡片）
+暖黄背景 `#FFF1DC`，圆角 26rpx。标题色 `#B86F20`，正文色 `#73543A`。
+### 6.6 星标按钮
+收藏/取消收藏的星标，圆形按钮，`★` 已收藏（暖棕 `#C4956A`），`☆` 未收藏（浅棕 `#D4C4B8`）。`catchtap` 阻止冒泡。
+### 6.7 年龄段卡片
+三张并排，各 `flex: 1`，高 278rpx，圆角 30rpx。选中态用 `border: 3rpx solid` + tone 色边框。内部：圆形图标 + 标签 + 副标题 + 数量胶囊。
+---
+## 七、三态展示规范
+各页面的加载、空、错误状态统一风格：
+### 7.1 加载中
+- 列表页：骨架屏（话题库）或"正在加载…"文字（收藏页、详情页）
+- 翻页：底部"正在加载…"
+- 按钮内：`loading="{{paying}}"` 属性控制 loading 图标
+### 7.2 空状态
+灰色文字居中，描述性提示：
+- 话题库无搜索结果："没有找到相关话题，试试更简短的关键词，或搜索标签、场景"
+- 收藏页空："还没有收藏的话题"
+- 首页推荐空："暂时无法加载推荐话题" / "暂无推荐话题"
+- 购买记录空："暂时还没有购买记录"
+### 7.3 错误状态
+`error-card` 样式：浅珊瑚背景 `#FFF0E8`，暖红棕文字 `#A96751`，圆角 20-22rpx，内边距 24-28rpx。提示文案包含排查建议（如"请先上传并部署 topicData 云函数"）。
+### 7.4 到底了
+列表底部灰色文字"已经到底了"。
+---
+## 八、tabBar 配置
+```json
+{
+  "color": "#B4AEAA",
+  "selectedColor": "#C4956A",
+  "backgroundColor": "#FFFFFF",
+  "borderStyle": "white",
+  "list": [
+    { "pagePath": "pages/index/index", "text": "首页", "iconPath": "assets/tabbar/home.png", "selectedIconPath": "assets/tabbar/home-active.png" },
+    { "pagePath": "pages/topic-library/index", "text": "话题库", "iconPath": "assets/tabbar/library.png", "selectedIconPath": "assets/tabbar/library-active.png" },
+    { "pagePath": "pages/mine/index", "text": "我的", "iconPath": "assets/tabbar/mine.png", "selectedIconPath": "assets/tabbar/mine-active.png" }
+  ]
+}
+```
+图标文件位于 `miniprogram/assets/tabbar/` 目录，6 张 PNG（3 tab × 选中/未选中）。
+---
+## 九、导航栏配置
+全局（app.json window）：
+- `navigationBarBackgroundColor`: `#FFF9F5`
+- `navigationBarTitleText`: "亲子对话"
+- `navigationBarTextStyle`: black
+- `backgroundTextStyle`: light
+- `backgroundColor`: `#FFF9F5`
+各页面可通过 `index.json` 的 `navigationBarTitleText` 覆盖导航栏标题。当前各页面未设置独立标题，统一显示"亲子对话"。
+---
+## 十、下拉刷新与触底加载
+下拉刷新：话题库页、收藏页、开通页支持（`onPullDownRefresh`）。首页、我的页、详情页不支持。需在页面 `index.json` 中配置 `"enablePullDownRefresh": true`。
+触底加载：话题库页支持 `onReachBottom` 触发下一页加载，底部显示"正在加载…"或"已经到底了"。
+---
+## 十一、 następstwo 页面特殊性
+### 首页
+- Hero 区：暖棕渐变背景 `linear-gradient(135deg, #F5E6D8, #EEDDD0, #E8D5C8)`，圆角 42rpx，含进度条"已探索 N / 100 个话题"
+- 沟通专题横滑卡片：各包独立渐变背景（如 coral `linear-gradient(155deg, #E0A998, #C4956A)`、blue `linear-gradient(155deg, #9AB8D6, #659ACC)` 等），圆角 14px，宽 120px 高 100px，仅显示包名和章节数
+- 推荐卡片：圆形 dot（62rpx）+ tone 色 + 字母标记（S/L/R），右侧 chevron `›`
+### 开通页
+- 大图标圆环（key-ring + key-symbol"楼"）
+- 权益卡片：编号 1/2/3 + 文案
+- 价格卡片：大字号价格 + "终生购买"标签
+- 购买记录：`✓`/`…` 状态图标 + 商品名 + 订单号 + 支付状态
+### 我的页
+- Profile 卡片（未开通）：浅棕纯色背景 + 人形图标 + "成长守护者" + 副标题 + "开通会员"按钮
+- Profile 卡片（会员）：金色渐变背景 + 皇冠徽章 + 会员名称
+- 统计数字行：已探索话题数、已收藏话题数、已读专题数等
+- 菜单卡片：3 行菜单项，每行左侧圆形字符图标 + 标题 + 副标题 + 右侧箭头 `>`
+- 开发者入口：DEV 徽章 + 标题 + 副标题（仅非正式版显示）

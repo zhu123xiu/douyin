@@ -1,0 +1,464 @@
+[
+  {
+    "_id": "emotion",
+    "title": "陪孩子搞定「情绪火山」",
+    "subtitle": "30章 · 35个实战场景",
+    "intro": "从识别情绪信号到当场应对，从事后复盘到长期能力培养。30 章方法论配 35 个真实场景实战话术，读完就能用。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 30,
+    "sortOrder": 1,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：识别情绪崩溃的信号和阶段",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：情绪崩溃时，孩子大脑发生了什么",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：不同气质类型的孩子，反应天差地别",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：被忽略的生理诱因——睡眠、血糖、感统",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：区分情绪崩溃与行为操纵",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：当场应对——不同年龄段话术",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：公共场合情绪崩溃的应对",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：商场超市里的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：餐厅里的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：在亲戚家：权威冲突下的应对",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：公共交通上的封闭空间",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：幼儿园与学校门口的分离时刻",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：医院与诊所：恐惧叠加疼痛",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：旅途中：疲惫与失控感",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：输不起：游戏与比赛中的崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：家长自己情绪失控怎么办",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：夫妻教育方式不一致",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：隔代教养的冲突",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：吼完孩子之后，怎么修复关系",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：孩子只对你发脾气，对别人从来不会",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：事后复盘——不引发二次崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：长期能力培养——学会自己管情绪",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：常见误区与疑难场景",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：教孩子说出感受：情绪词汇教学",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：什么时候需要专业帮助",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：特殊时期：入学、搬家、二胎降生",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：工具包——让情绪管理可视化",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：情绪日记：找到你家的崩溃规律",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：家庭情绪公约",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：30 天练习计划",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "homework",
+    "title": "不吼不叫搞定「作业拖延症」",
+    "subtitle": "30章 · 50个实战场景",
+    "intro": "从拖延真相到环境管理，从陪写技巧到内驱力培养。30 章方法论配 50 个真实场景实战话术，建立不焦虑的作业陪伴体系。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 30,
+    "sortOrder": 2,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：拖延的真实原因——不是懒",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：五种拖延类型的鉴别",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：畏难型：为什么他不敢动第一笔",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：注意力型：坐不住的生理与环境因素",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：被忽略的生理因素：视力、书写困难、睡眠",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：马虎不是态度问题",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：环境和时间管理",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：放学后到开始写作业的这段时间",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：卡在不会做的题上",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：字迹潦草与重写崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：订正错题时的对抗",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：作业记不住、丢三落四",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：只肯做喜欢的科目",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：假期与周末的时间黑洞",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：抄答案、找人代写",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：抗拒上学与躯体化反应",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：怎么陪写不变成战场",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：家长焦虑的自我调节",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：从「盯着写」到「自己写」的撤退路径",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：讲题讲到互相崩溃",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：成绩下滑时的第一句话",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：培养自主学习的内驱力",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：考试焦虑与成绩沟通",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：不同学科的沟通技巧",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 25,
+        "title": "第二十五章：「为什么非要学习」怎么回答",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 26,
+        "title": "第二十六章：学龄前：保护好奇心比认字更重要",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 27,
+        "title": "第二十七章：常见误区清单与急救话术",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 28,
+        "title": "第二十八章：作业启动清单",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 29,
+        "title": "第二十九章：错题本的正确用法",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 30,
+        "title": "第三十章：21天作业习惯计划",
+        "isFree": false
+      }
+    ]
+  },
+  {
+    "_id": "screen",
+    "title": "手机不是洪水猛兽：从对抗到共管",
+    "subtitle": "24章 · 40个实战场景",
+    "intro": "从理解依赖到制定协议，从游戏干预到网络安全。24 章方法论配 40 个真实场景实战话术，建立能执行的家庭屏幕规则。",
+    "icon": "",
+    "price": 9.9,
+    "priceFen": 990,
+    "chapterCount": 24,
+    "sortOrder": 3,
+    "status": "published",
+    "chapters": [
+      {
+        "chapterIndex": 1,
+        "title": "第一章：为什么不能一禁了之",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 2,
+        "title": "第二章：不同年龄段的合理使用时长",
+        "isFree": true
+      },
+      {
+        "chapterIndex": 3,
+        "title": "第三章：屏幕为什么这么难放下——设计出来的吸引力",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 4,
+        "title": "第四章：区分放松、社交与逃避三种使用动机",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 5,
+        "title": "第五章：屏幕对视力、睡眠与注意力的真实影响",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 6,
+        "title": "第六章：游戏沉迷的识别和干预",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 7,
+        "title": "第七章：网络社交安全教育",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 8,
+        "title": "第八章：约定时间到了却不肯停",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 9,
+        "title": "第九章：强行没收引发的情绪失控",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 10,
+        "title": "第十章：吃饭必须看屏幕",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 11,
+        "title": "第十一章：睡前的屏幕与入睡困难",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 12,
+        "title": "第十二章：偷偷玩、藏起来玩",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 13,
+        "title": "第十三章：模仿网络内容与不当言行",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 14,
+        "title": "第十四章：游戏充值与偷偷付费",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 15,
+        "title": "第十五章：家长以身作则",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 16,
+        "title": "第十六章：夫妻与祖辈标准不一致",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 17,
+        "title": "第十七章：从监督到信任——隐私与设备边界",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 18,
+        "title": "第十八章：网络冲突与追星——家长该不该介入",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 19,
+        "title": "第十九章：已经沉迷时的补救步骤",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 20,
+        "title": "第二十章：重建线下的乐趣——不玩屏幕就喊无聊",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 21,
+        "title": "第二十一章：把控制权逐步交还给孩子",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 22,
+        "title": "第二十二章：制定家庭屏幕协议",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 23,
+        "title": "第二十三章：设备设置与技术手段清单",
+        "isFree": false
+      },
+      {
+        "chapterIndex": 24,
+        "title": "第二十四章：屏幕使用的家庭复盘会",
+        "isFree": false
+      }
+    ]
+  }
+]

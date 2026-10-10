@@ -1,0 +1,56 @@
+<view class="page-shell">
+  <view class="section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">沟通专题</view>
+    </view>
+  </view>
+
+  <view class="package-tabs">
+    <view
+      class="package-tab {{activeTab === 'unlocked' ? 'package-tab--active' : ''}}"
+      data-tab="unlocked"
+      bindtap="selectTab"
+    >
+      已解锁
+    </view>
+    <view
+      class="package-tab {{activeTab === 'locked' ? 'package-tab--active' : ''}}"
+      data-tab="locked"
+      bindtap="selectTab"
+    >
+      未解锁
+    </view>
+  </view>
+
+  <view tt:if="{{filteredPackages.length}}" class="package-list">
+    <view
+      tt:for="{{filteredPackages}}"
+      tt:key="_id"
+      class="soft-card package-list-card"
+      data-id="{{item._id}}"
+      bindtap="openPackage"
+    >
+      <view class="package-list-card__cover" style="background: {{item.gradientStyle}};">
+        <view class="package-list-card__title">{{item.title}}</view>
+        <view class="package-list-card__badge">{{item.chapterCountText}}</view>
+      </view>
+      <view class="package-list-card__body">
+        <view class="package-list-card__meta">{{item.chapterCountText}} · 前{{item.freeCount}}章免费</view>
+        <view class="package-list-card__intro">{{item.intro}}</view>
+        <view class="package-list-card__footer">
+          <view class="package-list-card__price">
+            {{item.unlocked ? item.progressText : item.priceText + ' 解锁'}}
+          </view>
+          <view class="chevron">›</view>
+        </view>
+      </view>
+    </view>
+  </view>
+  <view tt:elif="{{!loading && activeTab === 'unlocked' && unlockedCount === 0}}" class="empty-state">
+    没有已解锁的专题包
+  </view>
+  <view tt:elif="{{!loading && activeTab === 'locked'}}" class="empty-state">
+    没有未解锁的专题包
+  </view>
+</view>

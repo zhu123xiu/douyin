@@ -1,0 +1,213 @@
+# ר����½��ļ�������Ƭ�������˵��
+�汾��v1.0�����ڣ�2026-09-08
+�漰�ļ���
+- `cloudfunctions/importData/index.js`�������ƺ�����
+- `miniprogram/pages/extra/developer-import/index.js`�������ߵ���ҳ�棩
+- `cloudfunctions/importData/data/communication_chapters*.json`�������ļ���
+---
+## һ����״����
+����ǰ�ĵ��������Χ�ơ�һ������ = һ�������ļ����ļ�����Ƶģ�������״���¡�
+### 1.1 ������֯��ȫ���½ڼ���һ�����ļ���
+����ר������½ڼ��д���ڵ��� `communication_chapters.json` �У�ÿ����һ��ר�����������ļ���׷�� 20-50 �£����θ��춯��ʱ���ļ������͵� 305 �¡�Լ 128 ���֡�Լ 2MB������֮���������⣺�ļ��������������ޣ��༭��ͻ��󡪡����κ�һ�������½ڶ�Ҫ��ȫ���ļ���diff ���ɶ���������һ�����ı��Ҫ�ڴ�ʮ���� JSON �﷭�ң��밴�������˶ԡ��������붼û�п��ܣ�������Զ�ǡ�ȫ��һ���ˡ���
+### 1.2 importData �ĵ��뷽ʽ�����ļ����롢�ڴ�����Ƭ
+importData �ƺ��������ļ��� = ���������Զ����� data Ŀ¼�µ������ļ�������ĳ����ʱ�� getDataset һ���԰����� JSON �ļ����벢���������飬�ٰ� offset/limit ��ҳ����ÿҳ 20 ������ `doc(id).set()` д���ƶˣ�
+```js
+function getDataset(collection) {
+  const filePath = path.join(DATA_DIR, `${collection}.json`);
+  ...
+  const data = readJsonFile(filePath);   // �����ļ�һ���Զ���
+  return data;                            // ��ҳֻ�����������
+}
+```
+�� topics��packages ����С������û�����⣻�� chapters �ǰ����ּ��Ĵ󼯺ϣ���ÿ�ε�����ö��Ȱ�ȫ���½�װ���ڴ桢ʵ��ֻ������ 20 ������ģʽ���ڴ��ֵ�����������������ģ��ȥ����紥����
+### 1.3 �½ڲ�ɶ���ļ��󣬵�����·ֱ�ӻ���
+Ϊ�˽�� 1.1 �Ĵ��ļ����⣬�Ѹ����½ڲ�� `communication_chapters_<��id>.json` ��Ƭ�ļ���һ��һ�ļ�������Ȼѡ�񡣵���������������£���ֱ�������������⣺
+- importData ���ÿ����Ƭ�ļ�����Ϊһ���������ϣ��ļ��� = ��������Լ����������ʱ�Ҳ�����Ӧ�� `communication_chapters_xxx.schema.json`��ֱ�ӱ�����ȱ�� schema �ļ������������������жϣ�
+- �����ֶ��ѷ�Ƭ�ϲ���һ����ʱ���ļ��ٵ����ֻص� 1.2 �����ļ�����ģʽ���ڴ�����ԭ��������
+Ҳ����˵�����ݲ��밴�����ļ��������ȡ�����������������ļ���Ҳû�С����ļ��������������������Ǳ��θ���Ҫ����ĸ���ì�ܡ�
+---
+## ��������Ŀ��
+1. **һ��һ�ļ�**��ÿ��ר������½ڶ������Ϊ `communication_chapters_<��id>.json` ��Ƭ�����ļ�ֻ�� emotion/homework/screen �����ϰ�������ר��� = ����һ����Ƭ�ļ���
+2. **�Ե�����·�޸�**�������ߵ���ҳ�������䣨scan �� �㵼�� �� �����ȣ�������Ҫ֪�����·��˶��ٸ��ļ���
+3. **��ʽ���룬�ڴ�㶨**���κ�һ�ε�����ã��ڴ���ֻפ������ǰ���ڵ����Ǹ���Ƭ�ļ��������ݣ���Ƭ�����������Ƹ��ڴ��ֵ��
+4. **���ļ������**���ϸ��ļ�˳�����ļ� �� ��Ƭ���ļ�������һ�������ٵ���һ������;�ϵ�����ʱ������set �����ݵȣ��ظ������޸����ã���
+5. **���嵥ά��**��������Ƭ�ļ��Զ������ֲ����뵼�룬���Ĵ��롢��ά���嵥��
+---
+## �������ĸĶ�����
+### 3.1 importData/index.js ���� ��Ƭ�������ų�
+�����������������ߺ��������ã�ʶ���Ƭ�ļ����ӡ��������������ų����ǡ�ƴ�������ļ� + ȫ����Ƭ���ĵ������С�
+```js
+const CHAPTER_COLLECTION = "communication_chapters";
+const CHAPTER_SHARD_PREFIX = "communication_chapters_";
+// �ж��Ƿ�Ϊ�½ڷ�Ƭ�ļ���communication_chapters_*.json��
+function isChapterShard(fileName) {
+  return fileName.startsWith(CHAPTER_SHARD_PREFIX) && fileName.endsWith(".json");
+}
+// ȫ����Ƭ�ļ���������֤����˳���ȶ���
+function getChapterShardFiles() {
+  return fs.readdirSync(DATA_DIR).filter(isChapterShard).sort();
+}
+// �������У����ļ���ǰ����Ƭ���ļ��������ں�
+function getChapterShardList() {
+  // �������ļ� + ȫ����Ƭ�ļ��������� scan ͳ�����Ƭ���뵼��
+  return [`${CHAPTER_COLLECTION}.json`, ...getChapterShardFiles()];
+}
+```
+`getDatasetNames` ����һ�й��ˣ���ֹ��Ƭ�ļ������ɶ������ϣ���� 1.2 �ı������⣩��
+```js
+function getDatasetNames() {
+  return fs
+    .readdirSync(DATA_DIR)
+    .filter(
+      (fileName) =>
+        fileName.endsWith(".json") &&
+        !fileName.endsWith(".schema.json") &&
+        !isChapterShard(fileName)          // �� �������ų��½ڷ�Ƭ
+    )
+    .map((fileName) => fileName.replace(/\.json$/, ""))
+    .sort();
+}
+```
+���� `getShardDataset`�����ļ�������ȡ���ǡ��ڴ�㶨���Ļ�����`getDataset` �ָ�Ϊ��ͨ���ϵ�ԭʼ�߼��������� chapters ���С�
+```js
+function getShardDataset(fileName) {
+  // ������Ƭ�ļ�������ȡ������һ���Ժϲ�ȫ���½ڵ����ڴ��ֵ����
+  const filePath = path.join(DATA_DIR, fileName);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`ȱ�ٷ�Ƭ�ļ�: ${fileName}`);
+  }
+  const data = readJsonFile(filePath);
+  if (!Array.isArray(data)) {
+    throw new Error(`${fileName} ����������`);
+  }
+  return data;
+}
+```
+### 3.2 importData/index.js ���� handleScan��ֻ����������װ����
+chapters ���ϵ�ɨ�費�ٺϲ��������ݣ�ֻ���ļ�ȡ `.length` �ۼӣ������ļ��嵥���ظ�ǰ�ˣ�������չʾ����Ƭ n/N������
+```js
+if (collection === CHAPTER_COLLECTION) {
+  // �½ڼ��������ļ� + ��Ƭ�ļ���ɣ���ͳ�Ƹ��ļ����������ϲ����ؽ��ڴ�
+  shardFiles = getChapterShardList();
+  shardFiles.forEach((fileName) => {
+    localCount += getShardDataset(fileName).length;
+  });
+} else {
+  localCount = getDataset(collection).length;
+}
+// ...
+datasets.push({
+  collection,
+  label: schema.label || collection,
+  localCount,
+  cloudCount,
+  shardFiles,          // �� �������� ["communication_chapters.json", "..._bridge.json", ...]
+});
+```
+### 3.3 importData/index.js ���� handleImport���� shardIndex ��λ���ļ�
+������������ `shardIndex` ������ÿ�ε���ֻ������ shardIndex ����Ƭ�ļ�������ҳֻ�ڸ��ļ��ڽ��У���ǰ�ļ����꣬���ء���һ�� shardIndex + offset ���㡹����ǰ�˽�����
+```js
+const schema = getSchema(event.collection);
+const isChapterCollection = event.collection === CHAPTER_COLLECTION;
+// �½ڼ��ϰ���Ƭ���룺ÿ��ֻ��һ����Ƭ�ļ����ڴ����פ����ǰ��Ƭ
+let dataset;
+let shardIndex = 0;
+let shardFiles = null;
+if (isChapterCollection) {
+  shardFiles = getChapterShardList();
+  shardIndex = Math.max(Number(event.shardIndex) || 0, 0);
+  if (shardIndex >= shardFiles.length) {
+    // Խ���ݴ���ֱ�ӱ������
+    return {
+      success: true,
+      collection: event.collection,
+      imported: 0,
+      nextOffset: 0,
+      shardIndex,
+      shardFiles,
+      done: true,
+      total: 0,
+      removed: 0,
+    };
+  }
+  dataset = getShardDataset(shardFiles[shardIndex]);   // �� ֻ����һ���ļ�
+} else {
+  dataset = getDataset(event.collection);
+}
+```
+����ֵ�ĵ����߼���ÿ��д��� for ѭ����ԭ����ȫһ�£�δ�Ķ�����
+```js
+const nextOffset = offset + chunk.length;
+const shardDone = nextOffset >= dataset.length;
+let done;
+let nextShardIndex = null;
+if (isChapterCollection) {
+  // ��ǰ��Ƭ�������е���һ����Ƭ��offset ���㣩��ȫ����Ƭ������� done
+  if (shardDone) {
+    nextShardIndex = shardIndex + 1;
+    done = nextShardIndex >= shardFiles.length;
+  } else {
+    nextShardIndex = shardIndex;
+    done = false;
+  }
+} else {
+  done = shardDone;
+}
+return {
+  success: true,
+  collection: event.collection,
+  imported: chunk.length,
+  nextOffset: isChapterCollection && shardDone ? 0 : nextOffset,  // ��Ƭʱ offset ����
+  shardIndex: nextShardIndex,
+  shardFiles,
+  done,
+  total: dataset.length,
+  removed,
+};
+```
+### 3.4 developer-import/index.js ���� ǰ��ѭ�����Ϸ�Ƭ����
+`importChunk` ���� `shardIndex` ������ÿ�ְ��ƺ������ص� `shardIndex` ������һ�֣������İ�׷�ӡ���Ƭ n/N����
+```js
+importChunk(collection, offset, shardIndex) {
+  callFunction({
+    name: "importData",
+    data: {
+      action: "import",
+      collection,
+      offset,
+      limit: 20,
+      shardIndex: shardIndex || 0,
+    },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (!result.success) {
+        throw new Error(result.message || "import failed");
+      }
+      const percent = result.total
+        ? Math.min(100, Math.round((result.nextOffset / result.total) * 100))
+        : 100;
+      const shardLabel =
+        result.shardFiles && result.shardFiles.length > 1
+          ? `����Ƭ ${Number(result.shardIndex) + 1}/${result.shardFiles.length}��`
+          : "";
+      this.setData({
+        importProgress: `${percent}%${shardLabel}`,
+      });
+      if (result.done) {
+        wx.showToast({ title: "�������", icon: "success" });
+        this.setData({ importingCollection: "", importProgress: "" });
+        this.loadDatasets();
+        return;
+      }
+      // �ؼ������ƶ˷��ص� shardIndex ������һ�֣�ʵ���Զ��л���Ƭ
+      this.importChunk(collection, result.nextOffset, result.shardIndex);
+    })
+    // .catch �ԣ���ԭ��һ��
+};
+```
+---
+## �ġ�������������ָ��
+����һ��ר������� `xxx`��ʱ��
+1. �½� `cloudfunctions/importData/data/communication_chapters_xxx.json`���½���Ŀ��`_id` �� `xxx_ch01` ���������� `communication_packages.json` ׷�Ӱ�Ŀ¼��Ŀ��
+2. �ϴ� importData �ƺ���������ҳ scan Ӧ��ʾ localCount ���ӡ���Ƭ�� +1���㵼�뼴�ɡ�������Ķ���

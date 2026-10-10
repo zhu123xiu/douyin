@@ -1,0 +1,31 @@
+{
+  "collection": "communication_packages",
+  "label": "专题包内容",
+  "requiredFields": {
+    "_id": "string",
+    "title": "string",
+    "intro": "string",
+    "chapterCount": "number",
+    "sortOrder": "number",
+    "status": "string",
+    "chapters": "array"
+  },
+  "optionalFields": {
+    "subtitle": "string",
+    "icon": "string",
+    "price": "number",
+    "priceFen": "number",
+    "gradientFrom": "string",
+    "gradientTo": "string"
+  },
+  "arrayItemRequired": {
+    "chapters": [
+      "chapterIndex",
+      "title",
+      "isFree"
+    ]
+  },
+  "uniqueFields": [
+    "_id"
+  ]
+}

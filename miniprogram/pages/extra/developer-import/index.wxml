@@ -1,0 +1,146 @@
+<view class="page-shell">
+  <view class="soft-card dev-card">
+    <view class="dev-card__title">开发者数据导入</view>
+    <view class="dev-card__desc">
+      当前页面已连接 importData 云函数，可按数据集分批导入。
+    </view>
+    <view tt:if="{{scanError}}" class="dev-auth-tip">云函数回显：{{scanError}}</view>
+  </view>
+
+  <view class="soft-card dev-card dev-card--light">
+    <view class="openid-card__head">
+      <view class="dataset-item__title">当前 OPENID</view>
+      <button
+        class="openid-card__copy"
+        bindtap="copyOpenid"
+        disabled="{{!openid}}"
+      >复制</button>
+    </view>
+    <view class="dataset-item__meta">{{openid || '尚未从云函数拿到 OPENID，可能未部署或尚未进入云模式'}}</view>
+    <view tt:if="{{!authorized}}" class="dev-auth-tip">
+      请把当前 OPENID 填入 `cloudfunctions/importData/developer-openids.js`，然后重新上传部署云函数。
+    </view>
+    <view tt:if="{{authorized}}" class="dataset-item__meta">当前账号已具备导入权限</view>
+  </view>
+
+  <view class="section-heading developer-section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">意见反馈</view>
+    </view>
+    <view class="section-heading__action">{{feedbacks.length}} 条</view>
+  </view>
+
+  <view tt:if="{{authorized}}" class="feedback-status-tabs">
+    <view
+      class="feedback-status-tab {{feedbackStatus === 'all' ? 'feedback-status-tab--active' : ''}}"
+      data-status="all"
+      bindtap="selectFeedbackStatus"
+    >全部</view>
+    <view
+      class="feedback-status-tab {{feedbackStatus === 'pending' ? 'feedback-status-tab--active' : ''}}"
+      data-status="pending"
+      bindtap="selectFeedbackStatus"
+    >待回复</view>
+    <view
+      class="feedback-status-tab {{feedbackStatus === 'replied' ? 'feedback-status-tab--active' : ''}}"
+      data-status="replied"
+      bindtap="selectFeedbackStatus"
+    >已回复</view>
+  </view>
+
+  <view tt:if="{{!authorized}}" class="soft-card feedback-admin-empty">
+    开发者账号授权后，可在这里处理用户反馈。
+  </view>
+  <view tt:elif="{{feedbackLoading}}" class="soft-card feedback-admin-empty">正在加载反馈…</view>
+  <view tt:elif="{{feedbackError}}" class="error-card">{{feedbackError}}</view>
+  <view tt:elif="{{!feedbacks.length}}" class="soft-card feedback-admin-empty">当前没有反馈记录。</view>
+  <view tt:else class="feedback-admin-list">
+    <view tt:for="{{feedbacks}}" tt:key="_id" class="soft-card feedback-admin-card">
+      <view class="feedback-admin-card__top">
+        <view class="feedback-admin-card__category">{{item.categoryLabel}}</view>
+        <view class="feedback-admin-card__status feedback-admin-card__status--{{item.status}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="feedback-admin-card__meta">{{item.createdAtText}} · 用户 {{item.openid}}</view>
+      <view class="feedback-admin-card__content">{{item.content}}</view>
+      <view tt:if="{{item.contact}}" class="feedback-admin-card__contact">联系方式：{{item.contact}}</view>
+      <view class="feedback-admin-card__reply-label">{{item.status === 'replied' ? '修改回复' : '回复用户'}}</view>
+      <textarea
+        class="feedback-admin-card__textarea"
+        maxlength="1000"
+        placeholder="填写回复内容"
+        value="{{item.replyDraft}}"
+        data-id="{{item._id}}"
+        bindinput="onFeedbackInput"
+      ></textarea>
+      <button
+        class="feedback-admin-card__button"
+        data-id="{{item._id}}"
+        bindtap="replyFeedback"
+        loading="{{replyingFeedbackId === item._id}}"
+        disabled="{{replyingFeedbackId}}"
+      >
+        {{item.status === 'replied' ? '更新回复' : '发送回复'}}
+      </button>
+      <view tt:if="{{item.repliedAtText}}" class="feedback-admin-card__replied-time">上次回复：{{item.repliedAtText}}</view>
+    </view>
+  </view>
+
+  <view tt:if="{{authorized}}" class="soft-card activation-code-card">
+    <view class="activation-code-card__head">
+      <view>
+        <view class="dataset-item__title">生成会员激活码</view>
+        <view class="dataset-item__meta">生成后可复制并发给用户兑换会员权益</view>
+      </view>
+      <button class="activation-code-card__copy" bindtap="copyActivationCodes">复制全部</button>
+    </view>
+    <view class="activation-code-card__form">
+      <input
+        class="activation-code-card__input"
+        type="number"
+        value="{{activationCodeCount}}"
+        maxlength="2"
+        bindinput="onActivationCodeCountInput"
+      />
+      <view class="activation-code-card__unit">个（最多 50 个）</view>
+      <button
+        class="activation-code-card__button"
+        loading="{{activationCodeGenerating}}"
+        disabled="{{activationCodeGenerating}}"
+        bindtap="generateActivationCodes"
+      >生成激活码</button>
+    </view>
+    <view tt:if="{{activationCodeError}}" class="dev-auth-tip">{{activationCodeError}}</view>
+    <view tt:if="{{!activationCodes.length && !activationCodeError}}" class="activation-code-card__empty">暂无未兑换激活码</view>
+    <view tt:elif="{{activationCodes.length}}" class="activation-code-list">
+      <view tt:for="{{activationCodes}}" tt:key="*this" class="activation-code-item">{{item}}</view>
+    </view>
+  </view>
+
+  <view class="section-heading">
+    <view class="section-heading__left">
+      <view class="section-heading__bar"></view>
+      <view class="section-heading__title">数据集清单</view>
+    </view>
+  </view>
+
+  <view class="dataset-list">
+    <view tt:for="{{datasets}}" tt:key="collection" class="soft-card dataset-item">
+      <view class="dataset-item__title">{{item.label}}</view>
+      <view class="dataset-item__meta">{{item.collection}} · 本地 {{item.localCount}} 条 · 云端 {{item.cloudCount}} 条</view>
+      <view tt:if="{{item.shardFiles && item.shardFiles.length > 1}}" class="dataset-item__meta">章节分片：{{item.shardFiles.length}} 个，导入时自动按顺序处理</view>
+      <view tt:if="{{importingCollection === item.collection}}" class="dataset-item__progress">
+        正在分批写入：{{importProgress}}
+      </view>
+      <button
+        class="dataset-item__btn"
+        data-collection="{{item.collection}}"
+        bindtap="importDataset"
+        disabled="{{!authorized || importingCollection}}"
+        loading="{{importingCollection === item.collection}}"
+      >
+        导入这组数据
+      </button>
+    </view>
+  </view>
+</view>

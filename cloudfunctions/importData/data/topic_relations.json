@@ -1,0 +1,270 @@
+[
+  {
+    "_id": "ph_3_6_001",
+    "topicId": "ph_3_6_001",
+    "related": [
+      {
+        "topicId": "ph_3_6_003",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_3_6_002",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_3_6_002",
+    "topicId": "ph_3_6_002",
+    "related": [
+      {
+        "topicId": "ph_3_6_005",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_3_6_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_3_6_003",
+    "topicId": "ph_3_6_003",
+    "related": [
+      {
+        "topicId": "ph_3_6_001",
+        "type": "same_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_3_6_004",
+    "topicId": "ph_3_6_004",
+    "related": [
+      {
+        "topicId": "ph_7_9_005",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_3_6_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_3_6_005",
+    "topicId": "ph_3_6_005",
+    "related": [
+      {
+        "topicId": "ph_3_6_002",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_3_6_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_3_6_006",
+    "topicId": "ph_3_6_006",
+    "related": [
+      {
+        "topicId": "ph_3_6_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_001",
+    "topicId": "ph_7_9_001",
+    "related": [
+      {
+        "topicId": "ph_10_12_002",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_002",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_002",
+    "topicId": "ph_7_9_002",
+    "related": [
+      {
+        "topicId": "ph_3_6_001",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_003",
+    "topicId": "ph_7_9_003",
+    "related": [
+      {
+        "topicId": "ph_3_6_002",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_004",
+    "topicId": "ph_7_9_004",
+    "related": [
+      {
+        "topicId": "ph_10_12_005",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_005",
+    "topicId": "ph_7_9_005",
+    "related": [
+      {
+        "topicId": "ph_3_6_004",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_7_9_006",
+    "topicId": "ph_7_9_006",
+    "related": [
+      {
+        "topicId": "ph_3_6_001",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_7_9_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_001",
+    "topicId": "ph_10_12_001",
+    "related": [
+      {
+        "topicId": "ph_3_6_001",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_10_12_002",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_002",
+    "topicId": "ph_10_12_002",
+    "related": [
+      {
+        "topicId": "ph_7_9_001",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_10_12_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_003",
+    "topicId": "ph_10_12_003",
+    "related": [
+      {
+        "topicId": "ph_10_12_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_004",
+    "topicId": "ph_10_12_004",
+    "related": [
+      {
+        "topicId": "ph_3_6_004",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_10_12_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_005",
+    "topicId": "ph_10_12_005",
+    "related": [
+      {
+        "topicId": "ph_7_9_004",
+        "type": "same_category",
+        "label": "????"
+      },
+      {
+        "topicId": "ph_10_12_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  },
+  {
+    "_id": "ph_10_12_006",
+    "topicId": "ph_10_12_006",
+    "related": [
+      {
+        "topicId": "ph_10_12_001",
+        "type": "cross_category",
+        "label": "????"
+      }
+    ]
+  }
+]

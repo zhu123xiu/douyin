@@ -1,0 +1,233 @@
+# 项目总览与技术架构
+版本：v1.0　日期：2026-08-09
+本文档是「亲子对话」微信小程序的技术架构总览，面向重写项目的开发者或 AI。阅读本文档后可建立全局认知，再按需深入各功能方案文档。
+---
+## 一、项目定位
+「亲子对话」是一款帮助家长与孩子建立有效沟通的微信小程序。核心内容形式是沟通话术指南——针对日常亲子场景（如起床、写作业、情绪管理等），提供错误示范 + 正确示范 + 专家贴士。面向 3-6 岁、7-9 岁、10-12 岁三个年龄段。
+商业模式为双 SKU 付费：会员 59 元永久解锁全部话题详细话术 + 全部 11 个专题包；单个专题包 9.9 元单独解锁，11 个包全部支持单买。话题库共 371 道题，其中 124 道免费（主库 86 + connection 包 12 + 节日运营 26）、247 道付费。
+专题包不是纯文字商品，而是「方法论章节 + 该主题实战话题」的解决方案包——买一个包同时解锁该包的 20-30 章正文和对应的 15-50 道实战话题。因此话题的解锁判定为三元链路：`topic.isFree || membershipActive || unlockedTopicIds.includes(topic._id)`。详见《专题包功能设计与实现方案》2.1.2 与 2.2 节。
+---
+## 二、技术栈
+微信小程序原生开发（WXML + WXSS + JS），不使用任何前端框架。后端为微信云开发（CloudBase），无独立服务器。
+关键配置项（`project.config.json`）：
+- `appid`：`wx5339a0faa13c1c7d`
+- `miniprogramRoot`：`miniprogram/`
+- `cloudfunctionRoot`：`cloudfunctions/`
+- `libVersion`：`2.20.1`（基础库最低版本要求 2.2.3，虚拟支付要求 2.19.2+）
+- `es6`：true（ES6 转 ES5）
+- `postcss`：true
+- `minified`：true
+---
+## 三、目录结构
+```
+miniprogram-8/
+├── project.config.json          # 微信开发者工具项目配置
+├── miniprogram/                  # 小程序前端代码
+│   ├── app.js                    # 入口：初始化云环境
+│   ├── app.json                  # 全局配置：页面路由、tabBar、窗口样式
+│   ├── app.wxss                  # 全局样式（空文件）
+│   ├── sitemap.json              # 站点地图（允许所有页面被搜索）
+│   ├── config/
+│   │   └── cloud.js              # 云环境配置（env ID、共享云开关）
+│   ├── utils/
+│   │   └── cloud.js              # 云能力封装（initCloud/callFunction/uploadFile/downloadFile）
+│   ├── assets/
+│   │   ├── tabbar/               # 6 张 tabBar 图标（3 tab × 选中/未选中）
+│   │   ├── icons/                # 页面图标
+│   │   └── images/               # 背景图
+│   └── pages/
+│       ├── index/                # 首页（tabBar 第 1 个）
+│       ├── topic-library/        # 话题库（tabBar 第 2 个）
+│       ├── topic-detail/         # 话题详情
+│       ├── mine/                 # 我的（tabBar 第 3 个）
+│       ├── activation/           # 开通/购买页
+│       ├── favorites/            # 收藏列表
+│       ├── developer-import/     # 开发者数据导入（仅非正式版可见）
+│       ├── training-plan/        # 训练计划详情页
+│       ├── theme-week-list/      # 主题周选择列表页
+│       ├── package-list/         # 专题包列表页
+│       ├── package-detail/       # 专题包详情页
+│       └── package-reader/       # 章节阅读器页
+├── cloudfunctions/               # 云函数
+│   ├── topicData/                # 话题数据读取（counts/list/detail/dailyRecommendations/level1List）
+│   ├── userData/                 # 用户数据（收藏）
+│   ├── topicVisit/               # 话题访问记录
+│   ├── payService/               # 支付服务（订单/签名/会员状态/发货回调）
+│   ├── trainingService/          # 训练引导（6 个 action）
+│   ├── packageData/              # 专题包数据（list/detail/chapter/progress/validIds）
+│   └── importData/               # 通用数据导入工具（scan/import）
+└── docs/                         # 技术方案文档
+```
+---
+## 四、云环境配置
+### 4.1 配置文件
+`miniprogram/config/cloud.js`：
+```js
+const cloudConfig = {
+  useSharedCloud: false,
+  resourceEnv: "cloudbase-d4gftyk7nccdc2c9c",
+};
+module.exports = cloudConfig;
+```
+`useSharedCloud`：是否使用共享云环境。`false` 表示使用当前小程序自己的云环境；`true` 时需填写 `resourceAppid`（资源方小程序 APPID）和 `resourceEnv`（资源方云环境 ID），所有数据库/云函数/云存储调用会走共享环境。
+`resourceEnv`：云开发环境 ID。当前为 `cloudbase-d4gftyk7nccdc2c9c`。
+### 4.2 云能力封装
+`miniprogram/utils/cloud.js` 封装了所有云调用入口，前端代码统一通过此模块调用云能力，不直接使用 `wx.cloud`：
+`initCloud()`：惰性初始化云环境，返回 Promise<cloudInstance>。内部用 `initPromise` 做单例缓存，确保整个 App 生命周期只初始化一次。共享云环境走 `new wx.cloud.Cloud({ resourceAppid, resourceEnv })`；非共享走 `wx.cloud.init({ env, traceUser: true })`。
+`callFunction(options)`：封装 `cloud.callFunction`，内部先 `getCloud()` 拿到已初始化的实例再调用。前端所有云函数调用都走这个方法。
+`uploadFile(options)` / `downloadFile(options)`：封装 `cloud.uploadFile` / `cloud.downloadFile`。
+### 4.3 App 入口
+`miniprogram/app.js`：
+```js
+App({
+  globalData: { topicCollection: "communication_topics" },
+  onLaunch() { initCloud().catch(error => console.error("云环境初始化失败", error)); },
+});
+```
+`onLaunch` 时初始化云环境，失败只打日志不阻断（后续页面调用云函数时会再次触发初始化）。
+### 4.4 开发者白名单机制
+`importData` 云函数中有 `developer-openids.js` 文件，定义允许执行管理操作（导入数据）的微信 OPENID 列表。云函数运行时会从 `cloud.getWXContext()` 获取调用者 OPENID 进行比对。同时支持通过环境变量 `DEVELOPER_OPENIDS`（逗号分隔）动态追加。
+开发者入口页面（`developer-import`）在 `mine` 页通过 `wx.getAccountInfoSync().miniProgram.envVersion` 判断当前环境，仅 `develop` 和 `trial` 版本显示入口，`release` 版本自动隐藏。
+---
+## 五、数据库集合总览
+当前项目使用以下云数据库集合：
+| 集合名 | 用途 | 写入方 | 安全规则 |
+|---|---|---|---|
+| `communication_topics` | 话题库主数据（300 条） | importData 云函数 | 所有用户可读，仅管理端可写 |
+| `communication_user_profiles` | 用户档案（会员状态、收藏标记、训练进度、专题包进度） | payService / trainingService / packageData | 用户只能读写自己的文档（_id = openid） |
+| `communication_membership_orders` | 支付订单 | payService | 用户只能读自己的订单 |
+| `communication_favorites` | 收藏记录 | userData | 用户只能读写自己的收藏 |
+| `communication_topic_visits` | 话题访问记录 | topicVisit | 用户只能读写自己的记录 |
+| `communication_packages` | 专题包内容（章节化图文） | importData 云函数 | 所有用户可读，仅管理端可写 |
+| `training_plans` | 训练计划配置（入门计划 + 主题周） | importData 云函数 | 所有用户可读，仅管理端可写 |
+| `topic_relations` | 话题关联关系（场景推荐） | importData 云函数 | 所有用户可读，仅管理端可写 |
+> 各集合的完整字段定义见《数据库集合与字段总表》文档。
+---
+## 六、云函数总览
+### 6.1 topicData — 话题数据读取
+前端读写话题库的唯一通道。5 个 action：
+| action | 用途 | 调用方 |
+|---|---|---|
+| `counts` | 查询 3 个年龄段各有多少条已发布话题 | 话题库页 |
+| `list` | 分页查询话题列表，支持关键词搜索 + level1 筛选，返回 locked 字段 | 话题库页 |
+| `detail` | 查询单条话题详情，非会员访问付费话题时裁剪核心内容 | 话题详情页 |
+| `dailyRecommendations` | 按日期+年龄段哈希选取 3 条每日推荐 | 首页 |
+| `level1List` | 查询某年龄段所有一级分类（去重） | 话题库页 |
+内部有 `isMemberOpenid` 函数查 `communication_user_profiles` 判断会员状态，带 60 秒内存缓存。
+### 6.2 userData — 用户数据（收藏）
+3 个收藏 action：
+| action | 用途 | 调用方 |
+|---|---|---|
+| `favoriteIds` | 查询用户所有收藏的 topicId 数组 | 话题库页、话题详情页 |
+| `toggleFavorite` | 收藏/取消收藏一条话题 | 话题库页、话题详情页 |
+| `listFavorites` | 查询收藏列表（关联话题详情），按 level2 分组统计 | 收藏页 |
+### 6.3 topicVisit — 话题访问记录
+| action | 用途 | 调用方 |
+|---|---|---|
+| `record` | 记录用户访问了一条话题（已存在则更新时间） | 话题详情页 |
+| `stats` | 统计用户已访问话题数 + 话题总数 | 首页（进度条） |
+### 6.4 payService — 支付服务
+微信虚拟支付（XPAY）全链路。4 个 type + 1 个回调：
+| type | 用途 | 调用方 |
+|---|---|---|
+| `createPurchaseOrder` | 创建订单（会员/单包），含已购检测和待支付订单清理 | 开通页 |
+| `createPaySign` | 换取 session_key + 构造签名参数 | 开通页 |
+| `getUserPurchases` | 查询用户会员状态 + 已购专题包列表 + 购买记录 | 首页、我的页、开通页 |
+| `checkMembership` | 供其他云函数调用的会员状态查询接口 | topicData（间接） |
+| 回调 `xpay_goods_deliver_notify` | 微信支付发货通知，更新订单状态 + 授予权益 | 微信平台 |
+支持双 SKU：会员（5900 分 = 59 元）和单包（990 分 = 9.9 元）。单包购买成功时除写入 `unlockedPackages` 外，还需把该包 `partTopics` 摊平后并入用户档案的 `unlockedTopicIds`。`VALID_PACKAGE_IDS` 通过 `packageData` 的 `validIds` action 动态获取。
+详细支付链路见《微信虚拟支付对接文档》。
+### 6.5 trainingService — 训练引导
+6 个 action：
+| action | 用途 | 调用方 |
+|---|---|---|
+| `getProgress` | 获取用户当前训练状态 | 首页 |
+| `startPlan` | 开始一个计划 | 首页、主题周列表页 |
+| `getPlanDetail` | 获取单个计划详情（含每台进度） | 训练计划页 |
+| `completeDay` | 标记某天完成 | 话题详情页（从训练计划跳入时） |
+| `getPlans` | 获取计划列表（按类型/年龄段） | 主题周列表页 |
+| `getRelatedTopics` | 获取话题关联推荐 | 话题详情页 |
+### 6.6 packageData — 专题包数据
+5 个 action：
+| action | 用途 | 调用方 |
+|---|---|---|
+| `list` | 专题包列表（含锁定状态） | 首页 C 区、专题包列表页 |
+| `detail` | 专题包简介 + 章节目录 | 专题包详情页 |
+| `chapter` | 单章正文内容 | 章节阅读器页 |
+| `progress` | 阅读进度查询/更新 | 章节阅读器页 |
+| `validIds` | 所有有效专题包 ID 列表 | payService |
+### 6.7 importData — 通用数据导入工具
+| action | 用途 | 调用方 |
+|---|---|---|
+| `scan` | 扫描 data/ 目录下有哪些集合可导入 | 开发者导入页 |
+| `import` | 将指定集合的 JSON 数据批量导入云数据库 | 开发者导入页 |
+支持 schema 校验、分批写入、相同 _id 覆盖更新。当前可导入的集合：`communication_topics`、`communication_packages`、`training_plans`、`topic_relations`。
+---
+## 七、页面总览
+### 7.1 tabBar 结构
+3 个 tab 页：
+| tab | 页面路径 | 标题 | 图标 |
+|---|---|---|---|
+| 首页 | `pages/index/index` | 亲子对话 | `assets/tabbar/home.png` / `home-active.png` |
+| 话题库 | `pages/topic-library/index` | 话题库 | `assets/tabbar/library.png` / `library-active.png` |
+| 我的 | `pages/mine/index` | 我的 | `assets/tabbar/mine.png` / `mine-active.png` |
+tabBar 配色：未选中 `#B4AEAA`，选中 `#C4956A`（暖棕色），背景 `#FFFFFF`。
+### 7.2 页面清单
+| 页面 | 路径 | 是否 tabBar | 核心职责 | 对应设计文档 |
+|---|---|---|---|---|
+| 首页 | `pages/index/index` | 是 | Hero + 训练引导卡片 + 专题包横滑 + 今日推荐 | 首页设计与实现方案 |
+| 训练计划 | `pages/training-plan/index` | 否 | 训练计划每日列表 | 首页设计与实现方案 |
+| 主题周列表 | `pages/theme-week-list/index` | 否 | 可选主题周列表 | 首页设计与实现方案 |
+| 专题包列表 | `pages/package-list/index` | 否 | 全部专题包列表 | 专题包功能设计与实现方案 |
+| 专题包详情 | `pages/package-detail/index` | 否 | 专题包简介 + 章节目录 | 专题包功能设计与实现方案 |
+| 章节阅读器 | `pages/package-reader/index` | 否 | 单章正文阅读 | 专题包功能设计与实现方案 |
+| 话题库 | `pages/topic-library/index` | 是 | 年龄段切换 + 搜索 + 分类筛选 + 分页列表 + 收藏 | 话题库与详情页设计文档 |
+| 话题详情 | `pages/topic-detail/index` | 否 | 话术展示 + 付费锁态 + 收藏 + 访问记录 + 关联推荐 | 话题库与详情页设计文档 |
+| 我的 | `pages/mine/index` | 是 | 会员状态 + 解锁进度 + 权益预览 + 统计 + 菜单入口 | 我的页设计文档 |
+| 开通 | `pages/activation/index` | 否 | 会员/单包购买 + 购买记录 | 我的页设计文档 |
+| 收藏 | `pages/favorites/index` | 否 | 收藏列表 + 分组 tab | 我的页设计文档 |
+| 开发者导入 | `pages/developer-import/index` | 否 | 数据导入工具前端 | 通用数据导入工具技术方案 |
+### 7.3 页面跳转关系
+```
+tabBar 首页 ──navigateTo──→ 话题详情（带 id 参数）
+         ├──navigateTo──→ 专题包详情 / 专题包列表
+         ├──navigateTo──→ 开通页（带 sourceKey/sourceTitle）
+         ├──switchTab───→ 话题库
+         └──navigateTo──→ 训练计划页 / 主题周列表页
+tabBar 话题库 ──navigateTo──→ 话题详情（带 id 参数）
+tabBar 我的 ───navigateTo──→ 开通页
+           ├──navigateTo──→ 收藏页
+           └──navigateTo──→ 开发者导入页（仅非正式版）
+话题详情 ────navigateTo──→ 开通页（带 sourceKey/sourceTitle）
+         └──navigateTo──→ 话题详情（关联推荐跳转）
+专题包详情 ──navigateTo──→ 章节阅读器
+           └──navigateTo──→ 开通页（非会员购买单包）
+开通页 ─────switchTab────→ 首页（支付成功后回首页）
+```
+---
+## 八、全局配置说明
+### 8.1 app.json 关键配置
+`window`：背景色 `#FFF9F5`（暖白），导航栏背景同色，标题"亲子对话"，文字黑色。
+`lazyCode`：`"requiredComponents"`（按需注入组件代码，优化启动性能）。
+`sitemap.json`：`"action": "allow", "page": "*"`（所有页面允许被微信搜索收录）。
+### 8.2 基础库版本要求
+- 最低 2.2.3：`wx.cloud` 可用
+- 虚拟支付最低 2.19.2：`wx.requestVirtualPayment` 可用
+前端 `activation` 页有 `canUseVirtualPayment()` 函数做版本检测，不满足时弹窗提示用户更新微信。
+---
+## 九、文档索引
+本项目全部技术文档：
+| 文档 | 定位 | 读者 |
+|---|---|---|
+| **本文档**（项目总览与技术架构） | 全局认知，5 分钟建立项目全貌 | 所有开发者/AI 首读 |
+| 开发顺序指导.md | 4 阶段开发顺序、依赖关系、验收检查清单 | 执行开发的 AI |
+| 首页设计与实现方案.md | 首页全量设计：训练引导系统 + 布局 + 实现 | 负责首页的开发者 |
+| 专题包功能设计与实现方案.md | 专题包章节化设计 + 单包购买链路 + 前端页面 | 负责专题包的开发者 |
+| 话题库与详情页设计文档 | 话题库页 + 详情页完整设计 + topicData 接口 | 负责话题库的开发者 |
+| 我的页设计文档 | 我的页 + 收藏页 + 开通页 | 负责我的 tab 的开发者 |
+| 微信虚拟支付对接文档 | XPAY 签名/下单/发货全链路 + 环境变量配置 | 负责支付的开发者 |
+| 通用数据导入工具技术方案.md | importData 云函数 + 开发者导入页 | 负责基础设施的开发者 |
+| 数据库集合与字段总表 | 8 个集合的完整字段定义、索引、安全规则 | 所有开发者参考 |
+| UI 设计规范文档 | 色彩/字号/组件/三态/骨架屏规范 | 负责前端 UI 的开发者 |
+| 部署与运维文档 | 全部云函数部署 + 集合创建 + 环境变量 + 检查清单 | 负责部署的运维者 |
+| 内容规划与生产手册.md | 三条内容线的生产规范和导入流程 | 内容生产者 |

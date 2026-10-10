@@ -1,0 +1,60 @@
+<view class="page-shell theme-list-page">
+  <scroll-view class="age-tabs" scroll-x enhanced show-scrollbar="{{false}}">
+    <view class="age-tabs__row">
+      <view
+        tt:for="{{ageFilters}}"
+        tt:key="ageGroup"
+        class="age-tab {{item.ageGroup === selectedAgeGroup ? 'age-tab--active' : ''}}"
+        data-age-group="{{item.ageGroup}}"
+        bindtap="selectAgeGroup"
+      >
+        {{item.label}}
+      </view>
+    </view>
+  </scroll-view>
+  <view tt:if="{{loading}}" class="loading-state">正在加载…</view>
+  <view tt:elif="{{!plans.length}}" class="empty-state">暂时还没有可用的主题周。</view>
+  <view tt:else class="theme-list">
+    <view
+      tt:for="{{plans}}"
+      tt:key="_id"
+      class="soft-card theme-plan-card"
+      data-id="{{item._id}}"
+      data-locked="{{item.locked}}"
+      bindtap="startThemePlan"
+    >
+      <view
+        class="theme-plan-card__icon"
+        style="background: {{item.iconColor}}; color: {{item.iconTextColor}};"
+      >
+        {{item.visualIcon}}
+      </view>
+      <view class="theme-plan-card__content">
+        <view class="theme-plan-card__top">
+          <view class="theme-plan-card__label">{{item.abilityFocus || item.visualLabel}} · {{item.ageLabel}}</view>
+          <view tt:if="{{item.completed}}" class="theme-plan-card__badge theme-plan-card__badge--done">已完成</view>
+          <view tt:elif="{{item.current}}" class="theme-plan-card__badge theme-plan-card__badge--current">进行中</view>
+          <view tt:elif="{{item.locked}}" class="theme-plan-card__badge theme-plan-card__badge--locked">会员专享</view>
+          <view tt:elif="{{item.recommended}}" class="theme-plan-card__badge">推荐</view>
+        </view>
+        <view class="theme-plan-card__title">{{item.title}}</view>
+        <view class="theme-plan-card__subtitle">{{item.subtitle}}</view>
+        <view tt:if="{{item.valueHook}}" class="theme-plan-card__hook">{{item.valueHook}}</view>
+        <view
+          class="theme-plan-card__meta {{item.completed ? 'theme-plan-card__meta--done' : ''}} {{item.locked ? 'theme-plan-card__meta--locked' : ''}}"
+        >
+          {{item.statusText}}
+        </view>
+        <button
+          tt:if="{{item.actionText}}"
+          class="theme-plan-card__btn"
+          data-id="{{item._id}}"
+          data-locked="{{item.locked}}"
+          catchtap="startThemePlan"
+        >
+          {{item.actionText}}
+        </button>
+      </view>
+    </view>
+  </view>
+</view>

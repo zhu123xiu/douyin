@@ -1,0 +1,276 @@
+# 开发顺序指导
+版本：v1.0　日期：2026-08-09
+本文档指导「亲子对话」小程序重写项目的开发顺序。将整个项目拆分为 4 个阶段，每阶段内的任务可并行，阶段间存在依赖。执行开发的 AI 按此顺序逐步实施。
+---
+## 阶段总览
+```
+阶段一：基础设施 + 数据层
+  ├── 1.1 云环境与项目骨架
+  ├── 1.2 云数据库集合创建
+  ├── 1.3 importData 云函数
+  ├── 1.4 数据导入
+  └── 1.5 topicData + userData + topicVisit 云函数
+阶段二：页面骨架 + 核心阅读流
+  ├── 2.1 app.json / 全局配置 / tabBar
+  ├── 2.2 话题库页
+  ├── 2.3 话题详情页
+  ├── 2.4 首页（基础版：Hero + 每日推荐 + 专题包入口占位）
+  └── 2.5 我的页（基础版）+ 收藏页
+阶段三：支付 + 专题包
+  ├── 3.1 payService 云函数
+  ├── 3.2 activation 开通页
+  ├── 3.3 packageData 云函数
+  ├── 3.4 专题包列表页 + 详情页 + 阅读器
+  └── 3.5 我的页（接入支付状态）+ 首页（接入会员锁定态）
+阶段四：训练引导 + 关联推荐
+  ├── 4.1 trainingService 云函数
+  ├── 4.2 training-plans 数据导入
+  ├── 4.3 首页训练卡片（5 形态）
+  ├── 4.4 训练计划详情页 + 主题周列表页
+  └── 4.5 话题详情页关联推荐 + 训练标记
+```
+---
+## 阶段一：基础设施 + 数据层
+目标：搭建项目骨架，创建全部云数据库集合，实现数据导入工具和核心数据读取云函数。此阶段完成后，数据层就绪，前端页面可以开始对接。
+### 1.1 云环境与项目骨架
+依赖文档：《项目总览与技术架构》第三章目录结构、第四章云环境配置。
+实施内容：
+创建完整的 `project.config.json`，配置 `appid: wx5339a0faa13c1c7d`、`miniprogramRoot: miniprogram/`、`cloudfunctionRoot: cloudfunctions/`、`libVersion: 2.20.1`。创建 `miniprogram/config/cloud.js`（云环境 ID: `cloudbase-d4gftyk7nccdc2c9c`）。创建 `miniprogram/utils/cloud.js`（`initCloud`/`callFunction`/`uploadFile`/`downloadFile` 封装）。创建 `miniprogram/app.js`（`onLaunch` 初始化云环境）。创建 `miniprogram/sitemap.json`。
+验收标准：微信开发者工具能打开项目，编译无报错，云环境初始化成功（控制台无错误）。
+### 1.2 云数据库集合创建
+依赖文档：《项目总览与技术架构》第五章、《数据库集合与字段总表》。
+实施内容：
+在云开发控制台手动创建以下 8 个集合，并配置安全规则（各集合的字段定义和索引详见《数据库集合与字段总表》）：
+1. `communication_topics` — 安全规则：所有用户可读，仅管理端可写
+2. `communication_user_profiles` — 安全规则：用户只能读写 `_id = openid` 的文档
+3. `communication_membership_orders` — 安全规则：用户只能读自己的订单
+4. `communication_favorites` — 安全规则：用户只能读写自己的收藏
+5. `communication_topic_visits` — 安全规则：用户只能读写自己的记录
+6. `communication_packages` — 安全规则：所有用户可读，仅管理端可写
+7. `training_plans` — 安全规则：所有用户可读，仅管理端可写
+8. `topic_relations` — 安全规则：所有用户可读，仅管理端可写
+验收标准：8 个集合均出现在云开发控制台，安全规则正确配置。
+### 1.3 importData 云函数
+依赖文档：《通用数据导入工具技术方案》。
+实施内容：
+创建 `cloudfunctions/importData/` 云函数，实现 `scan` 和 `import` 两个 action。包含 `developer-openids.js` 开发者白名单文件。支持 schema 校验、分批写入、相同 `_id` 覆盖更新。
+创建 `miniprogram/pages/developer-import/` 开发者导入页，在 `mine` 页通过 `envVersion` 判断仅非正式版显示入口。
+验收标准：开发者导入页能扫描 `data/` 目录，能成功导入测试数据到 `communication_topics` 集合。
+### 1.4 数据导入
+依赖：1.3 完成。
+实施内容：
+通过开发者导入页或直接在云开发控制台导入初始数据：
+1. `communication_topics`：导入全部话题数据（300 条），确保 `status: "published"` 的条目正确
+2. `communication_packages`：导入专题包配置数据（11 个包：emotion、homework、habit、screen、social、money、routine、separation、safety、interest、connection）
+3. `topic_relations`：首批可只导入 51-63 条关联数据（阶段四前补齐即可）
+4. `training_plans`：阶段四前导入即可（3 条入门计划 + 7 条主题周配置）
+验收标准：云开发控制台能看到各集合的数据，`communication_topics` 有 300 条已发布话题。
+### 1.5 topicData + userData + topicVisit 云函数
+依赖文档：《话题库与详情页设计文档》第三章 topicData、《我的页设计文档》第五章 userData。
+实施内容：
+`topicData`（5 个 action）：
+- `counts`：查询 3 个年龄段各有多少条已发布话题
+- `list`：分页查询话题列表，支持 `ageGroup` + `keyword` + `level1` + `skip` + `limit` 参数，返回 `locked` 字段
+- `detail`：查询单条话题详情，非会员访问付费话题时裁剪核心内容（wrongScripts/rightScripts 仅返回前 1 条，tipsCard 裁剪）
+- `dailyRecommendations`：按日期 + 年龄段 FNV-1a 哈希选取 3 条每日推荐
+- `level1List`：查询某年龄段所有一级分类（去重）
+- 内部实现 `isMemberOpenid` 函数（查 `communication_user_profiles`，60 秒内存缓存）
+`userData`（3 个 action）：
+- `favoriteIds`：返回用户收藏的 topicId 数组
+- `toggleFavorite`：收藏/取消收藏，写入冗余字段（ageGroup/level1/level2/scenario）
+- `listFavorites`：返回收藏列表 + 按 level1 分组统计
+`topicVisit`（2 个 action）：
+- `record`：记录话题访问（upsert）
+- `stats`：统计已访问数 / 总数
+验收标准：在云开发控制台测试云函数，各 action 返回正确数据。
+---
+## 阶段二：页面骨架 + 核心阅读流
+目标：实现 tabBar 三个页面 + 话题详情页，让用户能浏览话题库、查看话题详情、收藏话题。此阶段不涉及支付和训练引导，首页和我的页先做基础版本。
+### 2.1 app.json / 全局配置 / tabBar
+依赖：1.1 完成。
+实施内容：
+创建 `miniprogram/app.json`，配置 3 个 tabBar（首页/话题库/我的），窗口背景色 `#FFF9F5`，导航栏标题"亲子对话"。创建 tabBar 图标文件（`assets/tabbar/` 下 6 张 PNG）。配置 `lazyCode: "requiredComponents"`。
+验收标准：小程序能编译运行，3 个 tabBar 正常切换。
+### 2.2 话题库页
+依赖：1.5（topicData）、2.1 完成。
+依赖文档：《话题库与详情页设计文档》第一章。
+实施内容：
+创建 `pages/topic-library/` 页面，实现：页面标题 → 搜索框 → 年龄段卡片（3 张）→ 一级分类标签栏（横向滚动）→ 话题列表（分页加载）。收藏星标功能（调用 `userData` 的 `favoriteIds` + `toggleFavorite`）。骨架屏加载态。下拉刷新 + 触底加载。
+验收标准：能切换年龄段，能看到话题列表，能搜索，能筛选分类，能收藏/取消收藏，分页加载正常。
+### 2.3 话题详情页
+依赖：1.5（topicData + topicVisit）、2.2 完成。
+依赖文档：《话题库与详情页设计文档》第二章。
+实施内容：
+创建 `pages/topic-detail/` 页面，实现：话题头部（标签行 + 收藏 + 场景标题）→ 场景卡片 → 错误回答列表 → 正确回答列表 → 专家小贴士。付费锁态：非会员访问付费话题时核心内容裁剪 + 底部"开通会员查看全部"引导。访问记录（调用 `topicVisit` 的 `record`）。收藏功能（调用 `userData`）。
+此阶段暂不实现关联推荐区域和训练标记（阶段四再添加）。
+验收标准：从话题库进入详情页能查看完整内容（免费话题）或裁剪内容（付费话题），收藏功能正常，访问记录写入正常。
+### 2.4 首页（基础版）
+依赖：1.5（topicData + topicVisit）、2.1 完成。
+依赖文档：《首页设计与实现方案》。
+实施内容：
+创建 `pages/index/` 页面，基础版实现：
+- A 区 Hero 区域：标题 + 副标题 + 背景图
+- B 区 今日推荐：调用 `topicData` 的 `dailyRecommendations`，展示 3 条推荐话题卡片
+- C 区 专题包横滑：调用 `packageData` 的 `list`（阶段三再接入），此阶段先占位（硬编码 3 张静态卡片或空态提示）
+- D 区 阅读进度条：调用 `topicVisit` 的 `stats`，展示"已阅读 X / Y 条话题"
+- E 区 话题库入口：switchTab 跳转
+此阶段暂不实现训练引导卡片（阶段四再添加）。专题包横滑卡片点击先空操作或跳转到话题库。
+验收标准：首页能展示每日推荐，点击推荐卡片跳转话题详情页，阅读进度条显示正确。
+### 2.5 我的页（基础版）+ 收藏页
+依赖：1.5（userData）、2.1 完成。
+依赖文档：《我的页设计文档》。
+实施内容：
+**我的页基础版**：Profile 卡片 → 会员资源卡片（静态展示"开通"按钮，跳转开通页但开通页此阶段未实现，可先 toast 提示）→ 菜单列表（会员权益 / 我的收藏 / 版本信息）→ 开发者工具入口（非正式版）。此阶段暂不调用 `payService`（阶段三再接入），会员状态固定为"未开通"。
+**收藏页**：创建 `pages/favorites/` 页面，实现：统计卡片 → 分组 tab 栏（按 level1 分组）→ 收藏列表。调用 `userData` 的 `listFavorites`。点击收藏卡片跳转话题详情页。取消收藏功能。下拉刷新。
+验收标准：我的页能正常展示，从我的页能进入收藏页，收藏页能展示收藏列表和分组筛选。
+---
+## 阶段三：支付 + 专题包
+目标：实现微信虚拟支付全链路、专题包功能，接入会员锁定态。此阶段完成后，完整的付费闭环可用。
+### 3.1 payService 云函数
+依赖：阶段一完成（集合已创建）。
+依赖文档：《微信虚拟支付对接文档》第十一章完整源码。
+实施内容：
+创建 `cloudfunctions/payService/` 云函数，直接使用《微信虚拟支付对接文档》第十一章的完整源码。创建 `package.json`（依赖 `wx-server-sdk: ~2.6.3`）。在云开发控制台配置环境变量：`XPAY_OFFER_ID`、`XPAY_APP_SECRET`、`XPAY_SANDBOX_APP_KEY`、`XPAY_PROD_APP_KEY`。
+验收标准：云函数部署成功，在云开发控制台测试 `getUserPurchases` 返回正确响应。沙箱环境变量配置完毕。
+### 3.2 activation 开通页
+依赖：3.1 完成。
+依赖文档：《我的页设计文档》第二章。
+实施内容：
+创建 `pages/activation/` 页面，实现：入口 Banner → 权益说明卡片 → 价格卡片（双选项：会员 59 元 / 单包 9.9 元）→ 支付按钮 → 购买记录列表。完整支付流程：版本检测 → `createPurchaseOrder` → `wx.login` → `createPaySign` → `wx.requestVirtualPayment` → `waitForMembershipActivated` 轮询。本地缓存 `membership_access_cache`。错误处理（取消 / XPAY 配置错误 / 其他）。
+`PAYMENT_PRODUCT` 配置包含 `membership`（goodsPrice: 5900）和 `package`（goodsPrice: 990）两种。`startPurchase` 按 URL 参数 `mode` 分流。
+验收标准：沙箱环境下能完成会员购买全流程（创建订单 → 签名 → 支付 → 发货 → 轮询确认 → 回首页），用户档案写入 `membershipActive: true`。单包购买流程同样可走通。
+### 3.3 packageData 云函数
+依赖：1.4（communication_packages 数据已导入）。
+依赖文档：《专题包功能设计与实现方案》第五章。
+实施内容：
+创建 `cloudfunctions/packageData/` 云函数，实现 5 个 action：
+- `list`：返回专题包列表（含锁定状态，查 `communication_user_profiles` 判断已解锁）
+- `detail`：返回专题包简介 + 章节目录
+- `chapter`：返回单章正文内容
+- `progress`：查询/更新用户阅读进度（写入 `communication_user_profiles.packageProgress`）
+- `validIds`：返回所有有效专题包 ID 列表
+验收标准：各 action 返回正确数据，`list` 能正确标记锁定/已解锁状态。
+### 3.4 专题包列表页 + 详情页 + 阅读器
+依赖：3.3 完成。
+依赖文档：《专题包功能设计与实现方案》第七、八章。
+实施内容：
+**专题包列表页**（`pages/package-list/`）：展示全部专题包卡片，含封面/标题/副标题/价格/已解锁标记。点击跳转详情页。
+**专题包详情页**（`pages/package-detail/`）：展示专题包简介 + 章节目录。非会员未解锁时显示"9.9 元单独解锁"按钮 → 跳转开通页（`mode=package`）。已解锁时显示章节列表 → 点击跳转阅读器。
+**章节阅读器**（`pages/package-reader/`）：展示单章正文内容。支持上一章/下一章导航。阅读进度自动记录（调用 `packageData` 的 `progress`）。
+验收标准：从首页专题包入口能进入列表页 → 详情页 → 阅读器，阅读进度正常记录。未解锁的专题包显示购买入口，跳转开通页时带 `mode=package` 参数。
+### 3.5 我的页 + 首页接入支付
+依赖：3.1 + 3.2 完成。
+实施内容：
+**我的页升级**：`onShow` 时调用 `payService` 的 `getUserPurchases`，更新会员状态展示。已开通时显示会员名称 + "已开通"徽章 + 全彩资源图标。未开通时显示价格 + "开通"按钮。实现 `localProfile` 缓存机制。
+**首页升级**：`onLoad` 时调用 `getUserPurchases` 获取会员状态。今日推荐和专题包横滑根据会员状态展示锁定/解锁态。非会员点击付费内容跳转开通页（带 `sourceKey` + `sourceTitle`）。
+**话题详情页升级**：`loadTopic` 时传入会员状态，付费话题根据会员状态决定是否裁剪内容。非会员点击底部"开通"跳转开通页。
+验收标准：完整的付费闭环可用——用户从任意入口（首页/话题库/专题包）点击付费内容 → 开通页 → 支付 → 回首页 → 内容解锁。
+---
+## 阶段四：训练引导 + 关联推荐
+目标：实现训练引导系统（5 种卡片形态）和话题关联推荐。此阶段是项目的增强层，不影响核心阅读和支付流程。
+### 4.1 trainingService 云函数
+依赖：阶段一完成。
+依赖文档：《首页设计与实现方案》第六章。
+实施内容：
+创建 `cloudfunctions/trainingService/` 云函数，实现 6 个 action：
+- `getProgress`：获取用户当前训练状态（查 `communication_user_profiles.trainingProgress`）
+- `startPlan`：开始一个计划（初始化 `trainingProgress`）
+- `getPlanDetail`：获取计划详情 + 用户在该计划的每日完成情况
+- `completeDay`：标记某天完成
+- `getPlans`：获取计划列表（按类型/年龄段筛选）
+- `getRelatedTopics`：获取话题关联推荐（查 `topic_relations` 集合，未配置时走 fallback：同 level1 + 同 ageGroup 随机取 2 条）
+验收标准：各 action 返回正确数据，`startPlan` 能正确初始化训练进度，`completeDay` 能正确标记完成。
+### 4.2 training_plans 数据导入
+依赖：1.3（importData）、4.1 完成。
+实施内容：
+导入 `training_plans` 数据：
+- 3 条入门计划（3-6 岁 / 7-9 岁 / 10-12 岁）：每条 7 天，每天关联 1 个话题
+- 7 条主题周配置：每条 7 天，每天关联 1 个话题
+确保 `topic_relations` 数据补齐（51-63 条关联，每条话题配 2-3 条关联）。
+验收标准：`training_plans` 集合有 10 条记录，`topic_relations` 集合有 51-63 条记录。
+### 4.3 首页训练卡片（5 形态）
+依赖：4.1 + 4.2 完成。
+依赖文档：《首页设计与实现方案》第三章训练卡片 5 形态。
+实施内容：
+在首页 B 区（今日推荐上方）插入训练引导卡片，实现 5 种形态：
+1. `not_started`：展示"开始 7 天入门计划"引导
+2. `in_progress`：展示当前计划进度（Day X / 7）+ 今日话题入口
+3. `onboarding_done`：展示"入门计划已完成" + "探索主题周"引导
+4. `theme_week_active`：展示当前主题周进度
+5. `theme_week_done`：展示"主题周已完成" + 可重新选择
+`onShow` 时调用 `trainingService` 的 `getProgress` 更新卡片状态。点击卡片跳转训练计划页或主题周列表页。
+验收标准：新用户看到 `not_started` 形态，开始计划后看到 `in_progress`，每日完成后进度更新，7 天完成后切换到 `onboarding_done`。
+### 4.4 训练计划详情页 + 主题周列表页
+依赖：4.1 + 4.3 完成。
+依赖文档：《首页设计与实现方案》。
+实施内容：
+**训练计划详情页**（`pages/training-plan/`）：展示计划标题 + 7 天每日列表。每天显示话题场景标题 + 完成标记。点击未完成天 → 跳转话题详情页（带 `fromTraining` + `day` 参数）。调用 `trainingService` 的 `getPlanDetail`。
+**主题周列表页**（`pages/theme-week-list/`）：展示全部可选主题周卡片。已开始的主题周显示进度。点击"开始"调用 `startPlan` → 跳转训练计划详情页。调用 `trainingService` 的 `getPlans`。
+验收标准：从首页训练卡片能进入计划详情页，看到 7 天列表，点击某天能跳转话题详情页。
+### 4.5 话题详情页关联推荐 + 训练标记
+依赖：4.1 完成。
+依赖文档：《话题库与详情页设计文档》第二章第 2.3/2.9 节。
+实施内容：
+**关联推荐区域**：在话题详情页底部添加"相关话题"横滑区域。调用 `trainingService` 的 `getRelatedTopics`。展示关联话题卡片（场景标题 + 关联类型标签：same_category / cross_category / theme_chain）。点击跳转另一条话题详情页。
+**训练标记**：话题详情页 `onLoad` 时读取 URL 参数 `fromTraining` + `day`。`onShow` 时如果 `fromTraining` 存在且 `trainingDay` > 0，调用 `trainingService` 的 `completeDay` 标记该天完成。用 `_dayMarked` 实例级标记防止重复标记。
+验收标准：话题详情页底部显示关联推荐，点击能跳转。从训练计划进入详情页再返回时，该天自动标记为完成。
+---
+## 阶段依赖关系图
+```
+阶段一 ──────────────────────────────────────────→ 阶段二
+  1.1 项目骨架                                      2.1 app.json/tabBar
+  1.2 集合创建                                      2.2 话题库页 ← ← ←
+  1.3 importData        ──→ 1.4 数据导入 ──→ 1.5 topicData/userData/topicVisit
+                                                        ↓
+                                                ──────→ 阶段三
+  3.1 payService                                      3.2 activation ← ← ←
+  3.3 packageData ──→ 3.4 专题包页面                   3.5 我的页/首页接入支付
+                                                        ↓
+                                                ──────→ 阶段四
+  4.1 trainingService   4.2 数据导入                  4.3 首页训练卡片 ← ← ←
+                                                        4.4 训练计划页/主题周列表
+                                                        4.5 详情页关联推荐 + 训练标记
+```
+关键依赖约束：
+- `importData` 必须在数据导入前完成
+- `topicData` 必须在话题库页和话题详情页前完成
+- `payService` 必须在 activation 开通页前完成
+- `packageData` 必须在专题包页面前完成
+- `trainingService` 必须在首页训练卡片和训练计划页前完成
+- `training_plans` 数据必须在首页训练卡片前导入
+---
+## 全局验收检查清单
+以下检查项在全部 4 个阶段完成后逐一验证：
+**数据层**：
+- [ ] 8 个云数据库集合已创建，安全规则正确
+- [ ] `communication_topics` 有 300 条已发布话题
+- [ ] `communication_packages` 有 3 个以上专题包
+- [ ] `training_plans` 有 10 条计划配置
+- [ ] `topic_relations` 有 51-63 条关联数据
+**云函数**：
+- [ ] 7 个云函数全部部署成功
+- [ ] `payService` 的 4 个环境变量已配置
+- [ ] `importData` 的开发者白名单已配置
+- [ ] 各云函数 action 在云开发控制台测试通过
+**页面功能**：
+- [ ] 3 个 tabBar 正常切换
+- [ ] 话题库：年龄段切换、搜索、分类筛选、分页、收藏
+- [ ] 话题详情：内容展示、付费锁态、收藏、访问记录、关联推荐
+- [ ] 首页：Hero、训练卡片 5 形态、今日推荐、专题包横滑、阅读进度
+- [ ] 我的页：会员状态、资源卡片、菜单入口
+- [ ] 收藏页：列表展示、分组 tab、取消收藏
+- [ ] 开通页：双 SKU 展示、支付全流程、购买记录
+- [ ] 专题包列表/详情/阅读器：列表、锁定态、章节阅读、进度记录
+- [ ] 训练计划页/主题周列表：7 天列表、完成标记、主题周选择
+**支付闭环**：
+- [ ] 沙箱环境会员购买全流程走通
+- [ ] 沙箱环境单包购买全流程走通
+- [ ] 支付成功后用户档案正确更新
+- [ ] 付费内容在支付后正确解锁
+- [ ] 轮询超时和取消支付的错误处理正常
+**训练引导**：
+- [ ] 新用户首次进入首页看到 `not_started` 形态
+- [ ] 开始计划后训练卡片切换到 `in_progress` 形态
+- [ ] 从训练计划进入话题详情后该天自动标记完成
+- [ ] 7 天入门计划完成后切换到 `onboarding_done` 形态
+- [ ] 选择主题周后正常开始，完成后切换到 `theme_week_done` 形态

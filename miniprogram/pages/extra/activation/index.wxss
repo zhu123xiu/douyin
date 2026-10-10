@@ -1,0 +1,168 @@
+.source-banner {
+  padding: 22rpx 28rpx;
+  color: #907d74;
+  font-size: 24rpx;
+}
+
+.activation-hero {
+  text-align: center;
+  padding: 28rpx 0 12rpx;
+}
+
+.activation-hero__icon {
+  width: 160rpx;
+  height: 160rpx;
+  margin: 0 auto;
+  border-radius: 50%;
+  background: #c4956a;
+  color: #ffffff;
+  font-size: 70rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.activation-hero__title {
+  margin-top: 28rpx;
+  font-size: 48rpx;
+  font-weight: 800;
+}
+
+.activation-hero__subtitle {
+  margin-top: 14rpx;
+  color: #907d74;
+  font-size: 28rpx;
+  line-height: 1.6;
+}
+
+.benefit-card {
+  margin-top: 28rpx;
+  padding: 20rpx 0;
+}
+
+.benefit-card__item {
+  display: flex;
+  gap: 18rpx;
+  padding: 20rpx 28rpx;
+}
+
+.benefit-card__num {
+  width: 52rpx;
+  height: 52rpx;
+  border-radius: 26rpx;
+  background: #f5ede6;
+  color: #c4956a;
+  font-size: 24rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.benefit-card__text {
+  color: #5d4e46;
+  font-size: 25rpx;
+  line-height: 1.65;
+}
+
+.options-title {
+  margin: 34rpx 0 18rpx;
+  font-size: 34rpx;
+  font-weight: 700;
+}
+
+.price-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 18rpx;
+  padding: 28rpx;
+  margin-bottom: 18rpx;
+  border: 3rpx solid transparent;
+}
+
+.price-option--active {
+  border-color: #c4956a;
+}
+
+.price-option__left {
+  flex: 1;
+}
+
+.price-option__name {
+  font-size: 32rpx;
+  font-weight: 700;
+}
+
+.price-option__desc {
+  margin-top: 12rpx;
+  color: #907d74;
+  font-size: 24rpx;
+}
+
+.price-option__right {
+  text-align: right;
+}
+
+.price-option__price {
+  font-size: 54rpx;
+  font-weight: 800;
+}
+
+.price-option__unit {
+  margin-top: 8rpx;
+  color: #907d74;
+  font-size: 22rpx;
+}
+
+.activation-btn {
+  margin-top: 24rpx;
+}
+
+.activation-note {
+  margin-top: 18rpx;
+  color: #9f948e;
+  font-size: 22rpx;
+  text-align: center;
+}
+
+.order-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.order-item {
+  display: flex;
+  align-items: center;
+  gap: 18rpx;
+  padding: 24rpx;
+}
+
+.order-item__status {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 24rpx;
+  background: #effcf5;
+  color: #27a866;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.order-item__content {
+  flex: 1;
+}
+
+.order-item__name {
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.order-item__meta,
+.order-item__right {
+  margin-top: 8rpx;
+  color: #907d74;
+  font-size: 22rpx;
+}

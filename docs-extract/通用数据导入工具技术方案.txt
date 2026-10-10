@@ -1,0 +1,726 @@
+# 通用数据导入工具技术方案
+版本：v1.0　日期：2026-08-07
+本文档设计一个通用的云开发数据导入工具，取代现有的 `importTopicData` 云函数。核心目标是**零代码扩展**：开发者新增任何集合的数据导入，只需要在约定目录下放两个文件（数据 JSON + 校验规则 schema.json），小程序导入页面自动发现并展示导入选项，不需要修改云函数代码、不需要修改前端代码。
+---
+## 一、现有机制回顾
+当前的 `importTopicData` 云函数有以下局限：
+集合名硬编码为 `communication_topics`，写死在 `COLLECTION_NAME` 常量里。
+数据文件硬编码为 3 个年龄段 JSON，写死在 `DATASETS` 映射表里。
+校验规则硬编码为话题数据的字段结构（`scenario`/`wrongScripts`/`rightScripts`/`tips`/`tags` 等），写死在 `validateDataset` 函数里。
+前端 `developer-import` 页面的 `datasets` 数组也是硬编码的 3 个年龄段选项。
+这意味着每新增一个集合的数据导入，需要同时改云函数代码（加集合名、加文件映射、加校验规则）和前端代码（加导入选项），完全不具备扩展性。
+---
+## 二、整体设计
+### 2.1 核心思路
+改为"约定优于配置"模式：
+云函数 `data/` 目录下，每个 `.json` 文件是一个集合的数据源，同名 `.schema.json` 文件是该集合的校验规则。云函数启动时扫描 `data/` 目录，自动发现所有 `{name}.json` + `{name}.schema.json` 文件对，不需要在代码里注册。
+前端导入页面调用云函数的 `scan` action 获取可导入的数据集列表，动态渲染导入卡片。有多少个 JSON 文件就有多少个导入选项。
+### 2.2 目录结构
+```
+cloudfunctions/importData/
+├── index.js                  # 云函数主入口
+├── package.json              # 依赖声明
+├── config.json               # 云函数配置
+├── developer-openids.js      # 开发者白名单（从现有 importTopicData 迁移）
+└── data/
+    ├── communication_topics.json          # 话题数据（现有 300 条 + 扩容内容）
+    ├── communication_topics.schema.json   # 话题校验规则
+    ├── training_plans.json                # 训练计划配置
+    ├── training_plans.schema.json         # 训练计划校验规则
+    └── topic_relations.json               # 话题关联关系
+    └── topic_relations.schema.json        # 关联关系校验规则
+```
+文件命名规则：`{集合名}.json` 为数据文件，`{集合名}.schema.json` 为校验规则文件。集合名就是云数据库的 collection name。
+### 2.3 与现有 `importTopicData` 的关系
+新云函数 `importData` 完全取代 `importTopicData`。迁移步骤：
+1. 新建 `cloudfunctions/importData/` 目录
+2. 把 `importTopicData/data/` 下的 3 个 JSON 文件迁移到 `importData/data/`，合并为单个 `communication_topics.json`（现有是按年龄段拆分 3 个文件，新方案按集合维度组织，一个集合一个文件）
+3. 新建 `communication_topics.schema.json`
+4. 迁移 `developer-openids.js`
+5. 上传部署 `importData` 云函数
+6. 更新前端 `developer-import` 页面指向新云函数
+7. 确认无误后删除旧 `importTopicData` 目录
+---
+## 三、schema 文件格式
+每个 `{collection}.schema.json` 定义该集合的校验规则。格式如下：
+```json
+{
+  "collection": "training_plans",
+  "label": "训练计划配置",
+  "requiredFields": {
+    "_id": "string",
+    "planType": "string",
+    "ageGroup": "string",
+    "title": "string",
+    "days": "array",
+    "status": "string"
+  },
+  "optionalFields": {
+    "subtitle": "string",
+    "icon": "string",
+    "isFree": "boolean",
+    "sortOrder": "number"
+  },
+  "arrayItemRequired": {
+    "days": ["day", "topicId", "guide", "label"]
+  },
+  "uniqueFields": ["_id"]
+}
+```
+### 3.1 字段说明
+`collection`：集合名，与文件名一致。前端展示和云函数写入时都用这个值。
+`label`：中文显示名，给前端导入页面的卡片标题用。
+`requiredFields`：必填字段及类型。key 是字段名，value 是类型（`string`/`number`/`boolean`/`array`/`object`）。校验时检查字段存在、类型匹配、非空（string 类型额外检查 trim 后非空）。
+`optionalFields`：可选字段及类型。校验时如果字段存在则检查类型，不存在则跳过。不列在这里的字段不校验（允许数据中携带额外字段）。
+`arrayItemRequired`：数组元素的必填子字段。key 是数组字段名，value 是子字段名数组。校验时遍历数组每个元素，检查子字段存在且为非空 string。
+`uniqueFields`：唯一性校验字段。校验时统计整个数据文件中这些字段的值，发现重复则报错。通常只有 `_id`。
+### 3.2 三个集合的 schema 定义
+**`communication_topics.schema.json`**：
+```json
+{
+  "collection": "communication_topics",
+  "label": "沟通话题数据",
+  "requiredFields": {
+    "_id": "string",
+    "scenario": "string",
+    "scenarioDesc": "string",
+    "level1": "string",
+    "level2": "string",
+    "ageGroup": "string",
+    "tab": "string",
+    "tips": "string",
+    "wrongScripts": "array",
+    "rightScripts": "array",
+    "tags": "array",
+    "isFree": "boolean",
+    "sortOrder": "number",
+    "status": "string"
+  },
+  "arrayItemRequired": {
+    "wrongScripts": ["title", "content", "analysis"],
+    "rightScripts": ["title", "content", "analysis"]
+  },
+  "uniqueFields": ["_id"]
+}
+```
+注：现有 `validateDataset` 还校验 `tags` 恰好 3 个，`ageGroup` 与文件名一致。这些特殊规则在通用校验器中不做（通用校验器只做"存在 + 类型"检查），但因为 `communication_topics` 数据是开发者自己维护的，配合代码审查可以保证质量。如果确实需要 `tags` 长度校验，可以在 schema 里扩展一个 `arrayLength` 字段（见 3.3 节扩展点）。
+**`training_plans.schema.json`**：
+```json
+{
+  "collection": "training_plans",
+  "label": "训练计划配置",
+  "requiredFields": {
+    "_id": "string",
+    "planType": "string",
+    "ageGroup": "string",
+    "title": "string",
+    "days": "array",
+    "status": "string"
+  },
+  "optionalFields": {
+    "subtitle": "string",
+    "icon": "string",
+    "isFree": "boolean",
+    "sortOrder": "number"
+  },
+  "arrayItemRequired": {
+    "days": ["day", "topicId", "guide", "label"]
+  },
+  "uniqueFields": ["_id"]
+}
+```
+**`topic_relations.schema.json`**：
+```json
+{
+  "collection": "topic_relations",
+  "label": "话题关联关系",
+  "requiredFields": {
+    "_id": "string",
+    "topicId": "string",
+    "related": "array"
+  },
+  "arrayItemRequired": {
+    "related": ["topicId", "type", "label"]
+  },
+  "uniqueFields": ["_id"]
+}
+```
+### 3.3 扩展点（未来可加，当前不需要）
+如果未来需要更强的校验能力，schema 格式可以向后兼容扩展：
+`arrayLength`：指定数组字段的确切长度或范围。比如 `"tags": {"exact": 3}` 或 `"days": {"min": 5, "max": 7}`。
+`enumValues`：指定字段值必须在枚举列表中。比如 `"planType": ["onboarding", "theme_week"]`。
+`crossFieldValidation`：跨字段校验。比如 `ageGroup` 必须与数据文件名中的年龄段一致。
+当前不需要实现这些，保持 schema 格式简单。校验器只做"必填 + 类型 + 数组子字段 + 唯一性"四项检查。
+---
+## 四、云函数 `importData` 设计
+### 4.1 文件结构
+```
+cloudfunctions/importData/
+├── index.js
+├── package.json
+├── config.json
+├── developer-openids.js
+└── data/
+    ├── communication_topics.json
+    ├── communication_topics.schema.json
+    ├── training_plans.json
+    ├── training_plans.schema.json
+    └── ...
+```
+### 4.2 package.json
+```json
+{
+  "name": "importData",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
+```
+### 4.3 config.json
+```json
+{
+  "permissions": {
+    "openapi": []
+  },
+  "timeout": 30
+}
+```
+超时设为 30 秒（比现有的 10 秒更长），因为大文件校验和分批写入需要更多时间。
+### 4.4 核心模块设计
+```js
+const cloud = require("wx-server-sdk");
+const fs = require("fs");
+const path = require("path");
+const localDeveloperOpenids = require("./developer-openids");
+cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
+const db = cloud.database();
+const DATA_DIR = path.join(__dirname, "data");
+const BATCH_SIZE = 10;
+const MAX_IMPORT_SIZE = 20;
+```
+### 4.5 文件扫描——`scanDatasets()`
+启动时扫描 `data/` 目录，发现所有 `{name}.json` + `{name}.schema.json` 文件对：
+```js
+function scanDatasets() {
+  const files = fs.readdirSync(DATA_DIR);
+  const jsonFiles = files.filter(f => f.endsWith(".json") && !f.endsWith(".schema.json"));
+  const datasets = [];
+  for (const jsonFile of jsonFiles) {
+    const baseName = jsonFile.replace(/\.json$/, "");
+    const schemaFile = `${baseName}.schema.json`;
+    const schemaPath = path.join(DATA_DIR, schemaFile);
+    if (!fs.existsSync(schemaPath)) {
+      // 有数据文件但没有 schema 文件，跳过并记录警告
+      console.warn(`跳过 ${jsonFile}：缺少对应的 ${schemaFile}`);
+      continue;
+    }
+    let schema;
+    try {
+      schema = JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+    } catch (error) {
+      console.warn(`跳过 ${jsonFile}：schema 文件解析失败`);
+      continue;
+    }
+    const dataPath = path.join(DATA_DIR, jsonFile);
+    let recordCount = 0;
+    try {
+      const records = JSON.parse(fs.readFileSync(dataPath, "utf8"));
+      recordCount = Array.isArray(records) ? records.length : 0;
+    } catch (error) {
+      console.warn(`跳过 ${jsonFile}：数据文件解析失败`);
+      continue;
+    }
+    datasets.push({
+      collection: schema.collection || baseName,
+      label: schema.label || baseName,
+      fileName: jsonFile,
+      schemaFile: schemaFile,
+      recordCount: recordCount,
+    });
+  }
+  return datasets;
+}
+```
+返回值示例：
+```js
+[
+  {
+    collection: "communication_topics",
+    label: "沟通话题数据",
+    fileName: "communication_topics.json",
+    schemaFile: "communication_topics.schema.json",
+    recordCount: 300
+  },
+  {
+    collection: "training_plans",
+    label: "训练计划配置",
+    fileName: "training_plans.json",
+    schemaFile: "training_plans.schema.json",
+    recordCount: 10
+  },
+  {
+    collection: "topic_relations",
+    label: "话题关联关系",
+    fileName: "topic_relations.json",
+    schemaFile: "topic_relations.schema.json",
+    recordCount: 55
+  }
+]
+```
+### 4.6 数据加载——`loadDataset(collection)`
+根据集合名找到对应的 JSON 文件并加载：
+```js
+function loadDataset(collection) {
+  const fileName = `${collection}.json`;
+  const filePath = path.join(DATA_DIR, fileName);
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`找不到数据文件：${fileName}`);
+  }
+  const records = JSON.parse(fs.readFileSync(filePath, "utf8"));
+  return records;
+}
+```
+### 4.7 schema 加载——`loadSchema(collection)`
+```js
+function loadSchema(collection) {
+  const schemaPath = path.join(DATA_DIR, `${collection}.schema.json`);
+  if (!fs.existsSync(schemaPath)) {
+    throw new Error(`找不到校验规则文件：${collection}.schema.json`);
+  }
+  return JSON.parse(fs.readFileSync(schemaPath, "utf8"));
+}
+```
+### 4.8 通用校验器——`validateRecords(records, schema)`
+根据 schema 动态校验数据：
+```js
+const TYPE_CHECKERS = {
+  string: (val) => typeof val === "string" && val.trim().length > 0,
+  number: (val) => typeof val === "number" && !isNaN(val),
+  boolean: (val) => typeof val === "boolean",
+  array: (val) => Array.isArray(val) && val.length > 0,
+  object: (val) => typeof val === "object" && val !== null && !Array.isArray(val),
+};
+function validateRecords(records, schema) {
+  if (!Array.isArray(records) || records.length === 0) {
+    throw new Error("数据文件不是非空数组");
+  }
+  const uniqueTrackers = {};
+  (schema.uniqueFields || []).forEach((field) => {
+    uniqueTrackers[field] = new Set();
+  });
+  records.forEach((record, index) => {
+    const position = index + 1;
+    // 1. 检查必填字段
+    const required = schema.requiredFields || {};
+    for (const [field, type] of Object.entries(required)) {
+      const checker = TYPE_CHECKERS[type];
+      if (!checker) {
+        throw new Error(`schema 中未知的类型：${field}=${type}`);
+      }
+      if (!checker(record[field])) {
+        throw new Error(`第 ${position} 条记录缺少必填字段或类型不正确：${field}（期望 ${type}）`);
+      }
+    }
+    // 2. 检查可选字段（如果存在则校验类型）
+    const optional = schema.optionalFields || {};
+    for (const [field, type] of Object.entries(optional)) {
+      if (record[field] === undefined || record[field] === null) continue;
+      const checker = TYPE_CHECKERS[type];
+      if (!checker || !checker(record[field])) {
+        throw new Error(`第 ${position} 条记录字段类型不正确：${field}（期望 ${type}）`);
+      }
+    }
+    // 3. 检查数组元素的必填子字段
+    const arrayItemRequired = schema.arrayItemRequired || {};
+    for (const [arrayField, subFields] of Object.entries(arrayItemRequired)) {
+      const arr = record[arrayField];
+      if (!Array.isArray(arr)) continue;  // 必填检查已在步骤 1 完成
+      arr.forEach((item, itemIndex) => {
+        subFields.forEach((subField) => {
+          if (typeof item[subField] !== "string" || !item[subField].trim()) {
+            throw new Error(
+              `第 ${position} 条记录的 ${arrayField}[${itemIndex}].${subField} 不能为空`
+            );
+          }
+        });
+      });
+    }
+    // 4. 检查唯一性
+    for (const [field, seen] of Object.entries(uniqueTrackers)) {
+      const value = record[field];
+      if (seen.has(value)) {
+        throw new Error(`第 ${position} 条记录的 ${field} 重复：${value}`);
+      }
+      seen.add(value);
+    }
+  });
+}
+```
+### 4.9 集合创建——`ensureCollection(collectionName)`
+从现有代码迁移，把硬编码的 `COLLECTION_NAME` 改为参数：
+```js
+async function ensureCollection(collectionName) {
+  try {
+    await db.createCollection(collectionName);
+  } catch (error) {
+    const message = String(error && (error.errMsg || error.message || error));
+    if (!/exist|already|创建失败|DATABASE_COLLECTION_EXIST/i.test(message)) {
+      throw error;
+    }
+  }
+}
+```
+### 4.10 批量写入——`upsertRecords(collectionName, records)`
+从现有代码迁移，集合名改为参数：
+```js
+async function upsertRecords(collectionName, records) {
+  let written = 0;
+  for (let offset = 0; offset < records.length; offset += BATCH_SIZE) {
+    const batch = records.slice(offset, offset + BATCH_SIZE);
+    await Promise.all(
+      batch.map((record) => {
+        const { _id, ...data } = record;
+        return db.collection(collectionName).doc(_id).set({ data });
+      })
+    );
+    written += batch.length;
+  }
+  return written;
+}
+```
+### 4.11 云数据库计数——`getCollectionCount(collectionName)`
+```js
+async function getCollectionCount(collectionName) {
+  const result = await db.collection(collectionName).count();
+  return result.total || 0;
+}
+```
+### 4.12 action 路由——`exports.main`
+```js
+exports.main = async (event = {}) => {
+  const identity = getCallerIdentity();
+  const developerOpenids = getDeveloperOpenids();
+  const authorized = isAuthorizedDeveloper(identity, developerOpenids);
+  // action: scan —— 扫描可导入的数据集列表
+  // 不需要开发者权限，前端用此接口渲染导入选项
+  if (event.action === "scan") {
+    const datasets = scanDatasets();
+    const result = [];
+    for (const ds of datasets) {
+      let cloudCount = 0;
+      try {
+        cloudCount = await getCollectionCount(ds.collection);
+      } catch (error) {
+        // 集合可能不存在，计为 0
+      }
+      result.push({
+        collection: ds.collection,
+        label: ds.label,
+        localCount: ds.recordCount,
+        cloudCount: cloudCount,
+      });
+    }
+    return {
+      success: true,
+      authorized,
+      allowlistConfigured: developerOpenids.length > 0,
+      openid: identity.openid,
+      datasets: result,
+    };
+  }
+  // 以下 action 需要开发者权限
+  if (!authorized) {
+    return {
+      success: false,
+      code: "FORBIDDEN",
+      message: "当前微信账号不在开发者白名单中",
+      openid: identity.openid,
+    };
+  }
+  // action: import —— 分批导入指定集合的数据
+  if (event.action === "import") {
+    try {
+      const collection = String(event.collection || "").trim();
+      if (!collection) {
+        return { success: false, code: "INVALID_PARAMS", message: "缺少 collection 参数" };
+      }
+      const records = loadDataset(collection);
+      const schema = loadSchema(collection);
+      validateRecords(records, schema);
+      const offset = Math.max(0, Number.parseInt(event.offset, 10) || 0);
+      const limit = Math.min(MAX_IMPORT_SIZE, Math.max(1, Number.parseInt(event.limit, 10) || MAX_IMPORT_SIZE));
+      const recordsToWrite = records.slice(offset, offset + limit);
+      if (recordsToWrite.length === 0 && offset < records.length) {
+        throw new Error("导入范围无效");
+      }
+      await ensureCollection(collection);
+      const written = await upsertRecords(collection, recordsToWrite);
+      const nextOffset = offset + written;
+      const done = nextOffset >= records.length;
+      let cloudCount;
+      if (done) {
+        cloudCount = await getCollectionCount(collection);
+      }
+      return {
+        success: true,
+        collection,
+        written,
+        nextOffset,
+        datasetTotal: records.length,
+        done,
+        cloudCount,
+      };
+    } catch (error) {
+      console.error("importData failed", error);
+      return {
+        success: false,
+        code: "IMPORT_FAILED",
+        message: error && (error.message || error.errMsg) ? error.message || error.errMsg : String(error),
+      };
+    }
+  }
+  return { success: false, code: "INVALID_ACTION", message: "不支持的操作" };
+};
+```
+### 4.13 保留的现有函数
+以下函数从 `importTopicData` 原样迁移，不改动：
+`getDeveloperOpenids()`——合并本地白名单和环境变量。
+`getCallerIdentity()`——从 `cloud.getWXContext()` 获取 openid。
+`isAuthorizedDeveloper(identity, developerOpenids)`——检查 openid 是否在白名单中。
+---
+## 五、前端 `developer-import` 页面改动
+### 5.1 改动思路
+现有页面是硬编码 3 个年龄段卡片 + 硬编码调 `importTopicData`。改为：调用 `importData` 的 `scan` action 动态获取数据集列表，动态渲染卡片，动态执行导入。
+### 5.2 `index.js` 改动
+```js
+const cloud = require("../../utils/cloud");
+Page({
+  data: {
+    visible: false,
+    loading: true,
+    authorized: false,
+    allowlistConfigured: false,
+    openid: "",
+    statusMessage: "正在检查开发者权限...",
+    datasets: [],           // 改为动态：从 scan 接口获取
+    importingCollection: "",  // 替代原来的 importingAge
+    importProgress: "",
+    // PDF 上传相关字段保持不变
+    pdfAuthorized: false,
+    pdfCollectionName: "communication_pdf_assets",
+    pdfAssets: {},
+    uploadingPdfs: false,
+  },
+  onLoad() {
+    // 现有的 envVersion 检查逻辑不变
+    let envVersion = "release";
+    try {
+      envVersion = wx.getAccountInfoSync().miniProgram.envVersion || "release";
+    } catch (error) {
+      console.warn("cannot read envVersion", error);
+    }
+    if (envVersion === "release") {
+      wx.showToast({ title: "该页面仅开发版可用", icon: "none" });
+      setTimeout(() => wx.navigateBack(), 800);
+      return;
+    }
+    this.setData({ visible: true });
+    this.loadStatus();
+  },
+  loadStatus() {
+    this.setData({ loading: true, statusMessage: "正在检查开发者权限..." });
+    cloud.callFunction({
+      name: "importData",           // 改为 importData
+      data: { action: "scan" },     // 改为 scan
+      success: (response) => {
+        const result = response.result || {};
+        this.setData({
+          loading: false,
+          authorized: Boolean(result.authorized),
+          allowlistConfigured: Boolean(result.allowlistConfigured),
+          openid: result.openid || "",
+          datasets: result.datasets || [],
+          statusMessage: result.authorized
+            ? "开发者身份已验证，可以执行导入"
+            : result.openid
+              ? "请先将当前 OPENID 加入导入白名单"
+              : "云函数没有返回 OPENID，请先检查云环境和云函数配置",
+        });
+        this.loadPdfStatus();  // PDF 上传逻辑不变
+      },
+      fail: (error) => {
+        console.error("load import status failed", error);
+        this.setData({
+          loading: false,
+          statusMessage: "无法调用 importData，请先上传并部署该云函数",
+        });
+      },
+    });
+  },
+  importDataset(event) {
+    const collection = event.currentTarget.dataset.collection;
+    if (!this.data.authorized || this.data.importingCollection) return;
+    wx.showModal({
+      title: `导入 ${collection}`,
+      content: "相同 _id 的记录会被覆盖更新，不会产生重复数据。确认继续吗？",
+      success: (modalResult) => {
+        if (!modalResult.confirm) return;
+        this.executeImport(collection);
+      },
+    });
+  },
+  executeImport(collection) {
+    const dataset = this.data.datasets.find(d => d.collection === collection);
+    const total = dataset ? dataset.localCount : 0;
+    this.setData({ importingCollection: collection, importProgress: `0 / ${total}` });
+    wx.showLoading({ title: `导入 0/${total}`, mask: true });
+    this.importChunk(collection, 0);
+  },
+  importChunk(collection, offset) {
+    cloud.callFunction({
+      name: "importData",
+      data: {
+        action: "import",
+        collection,           // 传集合名，替代原来的 ageGroup
+        offset,
+        limit: 20,
+      },
+      success: (response) => {
+        const result = response.result || {};
+        if (!result.success) {
+          this.finishImportWithError(result.message || "未知错误");
+          return;
+        }
+        const nextOffset = Number(result.nextOffset);
+        const datasetTotal = Number(result.datasetTotal) || 0;
+        if (!Number.isFinite(nextOffset) || nextOffset <= offset) {
+          this.finishImportWithError("云函数版本过旧，请重新上传并部署 importData 后再试。");
+          return;
+        }
+        const current = Math.min(nextOffset, datasetTotal);
+        this.setData({ importProgress: `${current} / ${datasetTotal}` });
+        wx.showLoading({ title: `导入 ${current}/${datasetTotal}`, mask: true });
+        if (result.done) {
+          wx.hideLoading();
+          this.setData({ importingCollection: "", importProgress: "" });
+          wx.showToast({ title: `已导入 ${datasetTotal} 条`, icon: "success" });
+          this.loadStatus();
+          return;
+        }
+        this.importChunk(collection, nextOffset);
+      },
+      fail: (error) => {
+        console.error("import failed", error);
+        this.finishImportWithError(error.errMsg || "云函数调用失败");
+      },
+    });
+  },
+  // copyOpenid / loadPdfStatus / uploadPdfs / executePdfUpload / finishImportWithError
+  // 这些方法保持不变，只是 finishImportWithError 里把 importingAge 改为 importingCollection
+  finishImportWithError(message) {
+    wx.hideLoading();
+    this.setData({ importingCollection: "", importProgress: "" });
+    wx.showModal({ title: "导入失败", content: message, showCancel: false });
+  },
+});
+```
+### 5.3 `index.wxml` 改动
+核心区别：原来用 `wx:for="{{datasets}}"` 遍历硬编码的年龄段数组（`item.ageGroup`/`item.label`/`item.count`/`item.sourceCount`），现在遍历 `scan` 接口返回的动态数组（`item.collection`/`item.label`/`item.localCount`/`item.cloudCount`）。
+```xml
+<view wx:if="{{visible}}" class="page-shell import-page">
+  <!-- 警告卡片不变 -->
+  <view class="warning-card">
+    <view class="warning-title">仅开发者可用</view>
+    <view class="warning-text">
+      入口仅在开发版和体验版显示，正式版会自动隐藏；云函数仍会校验 OPENID 白名单。
+    </view>
+  </view>
+  <!-- 身份卡片不变，但白名单提示文案改成 importData -->
+  <view class="identity-card soft-card">
+    <view class="status-line">
+      <view class="status-dot {{authorized ? 'ok' : 'wait'}}"></view>
+      <text>{{statusMessage}}</text>
+    </view>
+    <view class="openid-label">当前 OPENID</view>
+    <view class="openid-row">
+      <text selectable class="openid">{{openid || '等待云函数返回'}}</text>
+      <button size="mini" bindtap="copyOpenid" disabled="{{!openid}}">复制</button>
+    </view>
+    <view wx:if="{{!authorized}}" class="setup-tip">
+      请把当前 OPENID 填入 cloudfunctions/importData/developer-openids.js，然后重新上传部署云函数。
+    </view>
+  </view>
+  <!-- 数据集列表：动态渲染 -->
+  <view class="dataset-list">
+    <view wx:for="{{datasets}}" wx:key="collection" class="dataset-card soft-card">
+      <view class="dataset-info">
+        <view class="dataset-title">{{item.label}}</view>
+        <view class="dataset-meta">
+          集合：{{item.collection}} · 云端 {{item.cloudCount}} 条 · 本地 {{item.localCount}} 条
+        </view>
+        <view wx:if="{{importingCollection === item.collection}}" class="import-progress">
+          正在分批写入：{{importProgress}}
+        </view>
+      </view>
+      <button
+        class="import-button"
+        data-collection="{{item.collection}}"
+        bindtap="importDataset"
+        disabled="{{!authorized || importingCollection}}"
+        loading="{{importingCollection === item.collection}}"
+      >导入</button>
+    </view>
+  </view>
+  <!-- PDF 上传区域不变 -->
+  <!-- ... -->
+  <view class="safe-note">
+    每次分批写入 20 条。重复执行会按 _id 更新数据，不会重复新增。新增集合只需在 importData/data/ 下放入 {集合名}.json 和 {集合名}.schema.json 两个文件，重新部署云函数后此处自动出现导入选项。
+  </view>
+</view>
+```
+### 5.4 `index.wxss` 改动
+不需要改动。现有的 `.dataset-card`/`.dataset-info`/`.dataset-title`/`.dataset-meta`/`.import-button`/`.import-progress` 样式完全复用，只是数据源从硬编码变成动态。
+---
+## 六、使用方式
+### 6.1 日常导入流程
+1. 在微信开发者工具中打开开发者导入页面（`pages/developer-import`）
+2. 页面自动调用 `importData` 的 `scan` action，显示所有可导入的数据集卡片
+3. 每张卡片显示：集合名、中文标签、云端现有条数、本地 JSON 条数
+4. 点击"导入"按钮 → 确认弹窗 → 分批写入 → 显示进度 → 完成提示
+### 6.2 新增集合的数据导入
+假设未来要新增一个 `user_feedback_categories` 集合的数据导入：
+1. 在 `cloudfunctions/importData/data/` 目录下创建两个文件：
+   - `user_feedback_categories.json`（数据文件，数组格式）
+   - `user_feedback_categories.schema.json`（校验规则文件）
+2. 在微信开发者工具中右键 `importData` → "上传并部署：云端安装依赖"
+3. 刷新开发者导入页面，自动出现新集合的导入卡片
+4. 不需要改任何代码
+### 6.3 更新已有集合的数据
+1. 修改 `cloudfunctions/importData/data/{集合名}.json` 文件
+2. 重新上传部署 `importData` 云函数
+3. 在导入页面点击对应集合的"导入"按钮
+4. `doc(_id).set()` 的 upsert 语义会覆盖已有记录、新增不存在的记录
+---
+## 七、迁移步骤
+从现有 `importTopicData` 迁移到 `importData` 的完整步骤：
+第一步：新建 `cloudfunctions/importData/` 目录及 `index.js`/`package.json`/`config.json`。
+第二步：拷贝 `developer-openids.js` 到新目录。
+第三步：把 `importTopicData/data/` 下的 3 个 JSON 文件合并为一个 `communication_topics.json`。合并方式：读取 3 个文件，把数组拼接成一个数组，写入新文件。注意 `_id` 不重复（3-6 岁从 ph_3_6_001 到 ph_3_6_100，7-9 岁从 ph_7_9_001 到 ph_7_9_100，10-12 岁从 ph_10_12_001 到 ph_10_12_100，天然不重复）。
+第四步：创建 `communication_topics.schema.json`（见 3.2 节）。
+第五步：在微信开发者工具中上传部署 `importData` 云函数。
+第六步：修改 `miniprogram/pages/developer-import/index.js` 和 `index.wxml`，把云函数名从 `importTopicData` 改为 `importData`，把 `action: "status"` 改为 `action: "scan"`，把 `ageGroup` 参数改为 `collection` 参数（见第五章）。
+第七步：在开发版中测试导入功能，确认 `communication_topics` 的 300 条数据可以正常导入。
+第八步：确认无误后，删除 `cloudfunctions/importTopicData/` 目录和根目录的 3 个年龄段 JSON 文件（数据源统一在 `importData/data/` 下管理）。
+同时要把根目录的 3 个话题 JSON 文件（`3-6岁沟通话题.json` 等）也迁移到 `importData/data/` 下合并为 `communication_topics.json`，根目录不再保留话题数据文件。
+---
+## 八、与内容生成规划文档的关系
+`内容生成规划文档.md` 中各内容块的导入方式需要更新：
+| 内容块 | 原导入方式 | 新导入方式 |
+|---|---|---|
+| A. 入门计划配置 | 云开发控制台手动录入 | 写入 `importData/data/training_plans.json` + `.schema.json` → 部署 → 导入页面一键导入 |
+| B. 主题周配置 | 云开发控制台手动录入 | 同上，合集在同一个 `training_plans.json` 文件里 |
+| C. 话题关联关系 | 云开发控制台手动录入 | 写入 `importData/data/topic_relations.json` + `.schema.json` → 部署 → 导入页面一键导入 |
+| E. 话题库扩容 | 写入 JSON 文件 → `importTopicData` 导入 | 追加到 `importData/data/communication_topics.json` → 部署 → 导入页面一键导入 |
+所有内容块统一走同一条链路，不再区分"控制台手动录入"和"云函数导入"。

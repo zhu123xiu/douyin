@@ -1,0 +1,1375 @@
+# 亲子沟通话题库小程序 · 体系化引导功能设计与实现方案
+版本：v3.0　日期：2026-08-07
+本文档是首页及体系化引导功能（7天入门计划 → 主题周 → 场景关联推荐）的完整设计与实现方案，供项目重写时使用。涵盖：云数据库集合结构、云函数接口定义、用户状态模型与 5 种首页卡片形态、页面整体布局、完整 WXML/WXSS/JS 实现、跳转目标页面设计、工程配置、数据初始化、开发节奏。话题详情页底部的"相关话题"推荐区域和话题库页的分类标签栏设计见《话题库与话题详情页设计文档》。
+---
+## 一、首页设计目标
+首页承担三个核心职责：
+1. **品牌与价值传递**——让用户第一眼知道这是什么产品、能帮他解决什么问题
+2. **引导用户进入体系化学习**——通过训练引导卡片，把"不知道从哪开始"变成"今天看这一条"
+3. **轻量化浏览入口**——提供每日推荐和快速跳转话题库的路径，但不承担搜索和分类浏览（那是话题库的职责）
+首页不承担的职责：搜索、分类筛选、话题库列表浏览。这些功能统一在话题库页面完成，避免重复。
+---
+## 二、首页整体布局结构
+### 2.1 页面分区
+首页从上到下分为 4 个区域：
+```
+┌─────────────────────────────────┐
+│          A. Hero 品牌区          │  固定不变，所有状态一致
+├─────────────────────────────────┤
+│      B. 训练引导卡片区            │  根据 trainingState 切换 5 种形态
+├─────────────────────────────────┤
+│    C. 热门话题（专题包横滑）       │  由专题包方案管辖
+├─────────────────────────────────┤
+│       D. 今日推荐列表             │  固定不变，每日推荐话题
+└─────────────────────────────────┘
+```
+核心原则：B 区是动态的，A/D 区在所有状态下保持不变。C 区的设计见《专题包功能设计与实现方案》。
+### 2.2 各区域职责与数据流
+**A. Hero 品牌区**：暖棕渐变背景卡片（`linear-gradient(135deg, #F5E6D8 0%, #EEDDD0 52%, #E8D5C8 100%)`），圆角 42rpx，最小高度 300rpx，内边距 `50rpx 42rpx 46rpx 48rpx`。主标题"亲子对话"（58rpx，700 字重，`#30231E`）+ 副标题"用心沟通，陪伴成长"（30rpx，`#907D74`）+ 进度条（暖棕填充 `#C4956A` + 浅棕背景）+ "已探索 N / 100 个话题"文字。数据来源：`topicVisit` 云函数 `stats` action。
+**B. 训练引导卡片区**：首页的核心差异化区域。根据用户的 `trainingState` 渲染 5 种不同卡片，详见第三章。数据来源：`trainingService` 云函数 `getProgress` action，在 `onLoad` 和 `onShow` 中调用。
+**C. 沟通专题横滑区**：区块标题"沟通专题"（section-heading 样式，左侧暖棕竖线 `#C4956A`）+ 右侧"查看全部 ›"链接。横向滚动展示前 4 个专题包卡片，每张 120×100px，圆角 14px，各包独立渐变背景（如 coral `linear-gradient(155deg, #E0A998, #C4956A)`、blue `linear-gradient(155deg, #9AB8D6, #659ACC)` 等），仅显示包名 + 章节数，点击跳转专题包详情页。"查看全部"跳转专题包列表页。数据来源为 `packageData` 云函数 `list` action。
+**D. 今日推荐列表**：每日推荐 3 条话题（每个年龄段 1 条）。
+数据来源：`topicData` 云函数 `dailyRecommendations` action，参数为 `dateKey`（当天日期 `YYYY-MM-DD`）。算法为 FNV-1a 哈希 `hash(dateKey + ageGroup) % total`，从 `communication_topics` 的 `published` 话题中按 `sortOrder` 升序偏移取 1 条，共 3 条。同一日期同一年龄段结果稳定。
+本地缓存：推荐结果按日期 key（`daily_reco_2026-08-09`）缓存在 `wx.getStorageSync`，当天有效。`loadDailyRecommendations` 先读缓存渲染（命中则立即显示，设置 `recommendationLoading: false`），再静默调云函数更新。云函数返回后覆写缓存和页面数据。如果云函数失败且已有缓存数据，保留缓存不报错；如果失败且无缓存，显示错误提示"暂时无法加载推荐话题"。
+元数据附加：每条推荐通过 `withRecommendationMeta` 函数附加 `tone` 和 `mark` 字段（3-6 岁=coral/S，7-9 岁=blue/L，10-12 岁=purple/R），用于渲染不同颜色的年龄段圆形标识。
+UI 展示：区块标题"今日推荐"（`section-heading` 样式，左侧 10×44rpx 竖线 `#C4956A` + 文字）。3 张推荐卡片纵向排列（gap 20rpx），每张：左侧圆形 dot（62rpx，tone 色背景 + 白字字母标记）+ 右侧 scenario 场景标题（29rpx，600 字重）+ 年龄标签 + level2 标签 + chevron `›`。点击跳转话题详情页（`openTopic`，URL 参数 `id` = 话题 `_id`）。
+三态展示：加载中显示"正在加载今日推荐…"（白色卡片，灰字 `#9F948E`）。空状态显示"暂无推荐话题"。错误状态显示浅珊瑚背景卡片 `#FFF0E8` + 暖红棕文字 `#A96751`。
+### 2.3 为什么不在首页放分类入口
+之前的讨论中已经确认：首页放 8 个分类图标会让用户误以为每个图标是独立功能，造成认知困惑。分类浏览统一放到话题库页面，首页通过"训练引导卡片"和"今日推荐"来引导内容消费，不需要重复建设分类入口。
+---
+## 三、训练引导卡片 5 种形态详细设计
+### 3.1 形态一：`not_started`——入门邀请卡片
+**用户场景**：新用户首次打开，还没开始任何计划。
+**卡片内容**：白色卡片，竖向布局。顶部暖棕色标签"开始你的入门计划"，标题"7天入门计划"，副标题"每天学习一个沟通话题，7天掌握亲子对话基础技巧"，底部全宽暖棕色按钮"开始入门 →"。点击按钮弹出年龄段选择 ActionSheet（3-6岁/7-9岁/10-12岁），选择后调用 `startPlan`，跳转 `training-plan` 页面。
+**设计意图**：新用户最需要的是"告诉我从哪开始"。一个明确的数字"7天"降低了心理门槛，不需要承诺长期投入就能开始。
+### 3.2 形态二：`in_progress`——入门进度卡片
+**用户场景**：已经开始 7 天入门计划，还在进行中。
+**卡片内容**：白色卡片。顶部暖棕色标签"7天入门计划" + 右侧 `Day N/7` 进度文字，暖棕色进度条，一行今日话题标题（如"今日话题：积极回应孩子的情绪"），7 个圆点进度指示器（已完成=暖棕填充色，当前=暖棕描边高亮，未来=浅灰），底部全宽暖棕色按钮"去练习 →"。点击按钮跳转 `training-plan` 页面。
+**设计意图**：让用户每次打开首页就能看到"今天该看哪条"，不用想、不用找。圆点进度条提供视觉上的"快完成了"牵引力。
+### 3.3 形态三：`onboarding_done`——入门完成过渡卡片
+**用户场景**：刚完成 7 天入门计划，还没开始第一个主题周。
+**卡片内容**：白色卡片。左侧绿色对勾图标 + "入门计划已完成！"标题，副标题"你已掌握了 7 个核心沟通技巧，接下来可以选择一个主题周进行深度练习。"，底部全宽暖棕色按钮"探索主题周 →"，按钮下方浅灰提示文字"每周深入一个主题，持续提升沟通力"。点击按钮跳转 `theme-week-list` 页面。
+**设计意图**：这是一个过渡状态，存在时间短（用户很快会选一个主题周进入下一阶段）。但如果不设计好这个过渡，用户完成入门后会突然失去方向——"然后呢？"。这个卡片就是回答"然后呢"。预览标签让用户在点击之前就能看到接下来有什么，降低决策成本。
+### 3.4 形态四：`theme_week_active`——主题周进度卡片
+**用户场景**：正在进行某个主题周计划。
+**卡片内容**：白色卡片，视觉风格与 `in_progress` 保持一致（统一暖棕色调）。顶部暖棕色标签"主题周进行中"，标题为当前主题周名称（如"情绪管理周"），副标题为主题描述，进度点数量为 7 个（主题周也是 7 天），"第 N 天 / 共 7 天"文字 + 底部全宽按钮"继续今天的练习"，按钮下方提示"每天完成一个话题练习"。点击按钮跳转 `training-plan` 页面。
+**设计意图**：用户在做主题周时，首页体验和入门阶段保持一致的"打开→看到今天该看什么→点击进入"的路径，零认知成本。视觉风格的微调让用户感知到"进入了更深入的阶段"。
+### 3.5 形态五：`theme_week_done`——成长概览卡片
+**用户场景**：已完成至少一个主题周，当前没有进行中的计划。这是用户的长期常驻状态。
+**卡片内容**：白色卡片。左侧绿色对勾图标 + "情绪管理周·已完成"标题（7 个绿色完成点），副标题"恭喜！你已完成本周全部练习"，暖棕描边按钮"选择新的主题周"，下方链接"查看所有主题周 >"。点击按钮/链接跳转 `theme-week-list` 页面。
+当全部主题周都已完成时，按钮文案切换为"全部主题已完成！"，下方链接改为"去话题库自由浏览 >"。
+**设计意图**：这是用户长期留存的核心状态。卡片既展示成就感（已完成数量），又提供持续动力（还有 X 个主题）。不强制用户必须一直做主题周——用户可以不做主题周而直接看今日推荐或去话题库浏览，但首页始终保留这个入口，让用户知道"还有更多系统性内容可以学"。
+### 3.6 五种形态的视觉差异化对照
+| 形态 | 主色调 | 特色元素 |
+|---|---|---|
+| not_started | 白色卡片 + 暖棕按钮 | 暖棕色标签"开始你的入门计划" + 全宽按钮"开始入门" |
+| in_progress | 白色卡片 + 暖棕进度条 | 7点进度指示器 + Day徽章 + 全宽按钮"去练习" |
+| onboarding_done | 白色卡片 + 绿色对勾 | 绿色✓ + 全宽按钮"探索主题周" |
+| theme_week_active | 白色卡片 + 暖棕进度条 | 暖棕色标签"主题周进行中" + 7点进度 + 全宽按钮"继续今天的练习" |
+| theme_week_done | 白色卡片 + 绿色对勾 | 7个绿色完成点 + 暖棕描边按钮"选择新的主题周" + 链接 |
+---
+## 四、用户状态模型与首页展示策略
+### 4.1 完整用户状态定义
+用户的训练生命周期分为 5 个阶段，每个阶段首页的引导卡片展示不同内容：
+| 状态标识 | 状态名称 | 触发条件 | 首页引导卡片内容 |
+|---|---|---|---|
+| `not_started` | 未开始 | 新用户，未选择过年龄段 | 入门邀请卡片："7天沟通入门，选择孩子年龄段开始" |
+| `in_progress` | 入门进行中 | 已开始入门计划，未完成全部7天 | 进度卡片：计划标题 + Day进度条 + 今日话题预览 |
+| `onboarding_done` | 入门完成 | 入门计划7天全部完成，未开始任何主题周 | 过渡卡片："恭喜完成入门！选一个主题继续深入" + 主题周预览标签 |
+| `theme_week_active` | 主题周进行中 | 正在进行某个主题周计划 | 进度卡片（同入门进行中结构，但视觉区分主题周风格） |
+| `theme_week_done` | 主题周完成 | 至少完成过一个主题周，当前无进行中的计划 | 成长概览卡片：已完成主题数 + 继续探索入口 |
+### 4.2 状态流转图
+```
+新用户打开
+    │
+    ▼
+[not_started] ──── 用户选择年龄段、点击开始 ────► [in_progress]
+                                                      │
+                                                 7天全部完成
+                                                      │
+                                                      ▼
+                                              [onboarding_done]
+                                                      │
+                                                 选择并开始主题周
+                                                      │
+                                                      ▼
+                                            [theme_week_active] ◄────────┐
+                                                      │                  │
+                                                 主题周全部完成          │
+                                                      │                  │
+                                                      ▼                  │
+                                              [theme_week_done]          │
+                                                      │                  │
+                                                 再选一个主题周            │
+                                                      └──────────────────┘
+```
+关键说明：
+`theme_week_done` 不是终态。用户可以反复选择新的主题周，每次开始主题周回到 `theme_week_active`，完成后回到 `theme_week_done`。这个循环就是产品的长期留存机制。
+用户也可以中途放弃一个主题周去开始另一个。放弃时旧计划标记为"中断"（`startPlan` 会把旧 `currentPlan.planId` 移入 `completedPlans`），新计划开始，状态变为 `theme_week_active`。
+用户也可以不做任何主题周，直接去话题库自由浏览。首页的引导卡片只是"推荐你接下来做什么"，不是强制流程。
+### 4.3 trainingState 判定逻辑
+前端 `loadTrainingProgress()` 方法从 `trainingService` 的 `getProgress` action 拿到数据后，按以下优先级判定 `trainingState`：
+```
+1. 没有 selectedAgeGroup           → not_started
+2. 有 currentPlan                   → in_progress 或 theme_week_active
+   （根据 currentPlan.planType 区分："onboarding" → in_progress, "theme_week" → theme_week_active）
+3. 没有 currentPlan，onboardingDone=false → not_started（中断后重新引导）
+4. 没有 currentPlan，onboardingDone=true，themeWeekStats 不存在或 completedCount=0 → onboarding_done
+5. 没有 currentPlan，onboardingDone=true，themeWeekStats.completedCount > 0 → theme_week_done
+```
+### 4.4 `getProgress` 返回与前端状态的映射关系
+| `getProgress` 返回字段 | 前端 `trainingState` | `trainingCard` 数据来源 |
+|---|---|---|
+| `selectedAgeGroup` 为空 | `not_started` | 无 |
+| `currentPlan` 存在，`planType: "onboarding"` | `in_progress` | `currentPlanInfo` 的字段 |
+| `currentPlan` 存在，`planType: "theme_week"` | `theme_week_active` | `currentPlanInfo` 的字段 |
+| 无 `currentPlan`，`onboardingDone: false` | `not_started` | 无 |
+| 无 `currentPlan`，`onboardingDone: true`，`themeWeekStats` 不存在 | `onboarding_done` | `themeWeekPreview.tags` |
+| 无 `currentPlan`，`onboardingDone: true`，`themeWeekStats.completedCount > 0` | `theme_week_done` | `themeWeekStats` 的字段 |
+---
+## 五、首页依赖的云数据库集合
+首页通过 `trainingService` 云函数间接读写以下集合。前端不直接操作数据库，所有数据通过云函数中转。以下定义首页会涉及到的集合结构和字段。
+### 5.1 `training_plans`——训练计划配置表
+存储入门计划和主题周的编排配置数据。这是一张"配置表"，由开发者维护，普通用户只读。首页的 `onboarding_done` 过渡卡片需要从这个集合查主题周预览标签，`theme_week_done` 成长概览卡片需要统计已完成主题周数量和可选数量。
+```js
+// 文档结构
+{
+  _id: "onboarding_3_6",           // 计划 ID，入门计划用 onboarding_{ageGroup}，主题周用 tw_{ageGroup}_{slug}
+  planType: "onboarding",          // "onboarding" | "theme_week"
+  ageGroup: "3-6",                 // 适用年龄段
+  title: "7天沟通入门·幼儿版",       // 计划标题
+  subtitle: "从每天接送开始，一步步学会和小朋友聊天",  // 副标题
+  icon: "baby",                    // 图标标识（前端映射为具体图片路径）
+  isFree: true,                    // 是否免费（入门计划固定 true，主题周固定 false——需要会员才能解锁）
+  sortOrder: 0,                    // 排序权重（主题周列表排序用）
+  status: "published",             // "published" | "draft"
+  days: [                          // 每天的编排配置
+    {
+      day: 1,
+      topicId: "ph_3_6_065",       // 指向 communication_topics 集合的 _id
+      guide: "第一天，从最简单的场景开始……",  // 当天引导文案，首页进度卡片展示
+      label: "日常沟通"             // 当天学习主题标签
+    },
+    // ... 共 7 条（入门计划和主题周均为 7 天）
+  ]
+}
+```
+初始数据量：3 套入门计划（3-6/7-9/10-12 岁各 1 套，每套 7 天）+ 首批 3-6 个主题周配置 = 6-9 个文档。数据量极小，可以直接在云开发控制台手动录入。
+初始数据示例（7-9 岁年龄段）：
+| _id | planType | ageGroup | title | isFree | days 中的 topicId 列表 |
+|---|---|---|---|---|---|
+| `onboarding_7_9` | onboarding | 7-9 | 7天沟通入门·学龄版 | true | ph_7_9_001, ph_7_9_054, ph_7_9_008, ph_7_9_041, ph_7_9_067, ph_7_9_060, ph_7_9_089 |
+| `tw_7_9_homework` | theme_week | 7-9 | 写作业不用吼 | false | ph_7_9_001, ph_7_9_007, ph_7_9_003, ph_7_9_008, ph_7_9_012, ph_7_9_038, ph_7_9_040 |
+| `tw_7_9_screen` | theme_week | 7-9 | 手机不是洪水猛兽 | false | ph_7_9_036, ph_7_9_041, ph_7_9_037, ph_7_9_039, ph_7_9_047, ph_7_9_046, ph_7_9_044 |
+| `tw_7_9_emotion` | theme_week | 7-9 | 读懂孩子的情绪信号 | false | ph_7_9_051, ph_7_9_054, ph_7_9_055, ph_7_9_057, ph_7_9_052, ph_7_9_060, ph_7_9_058 |
+### 5.2 `communication_user_profiles`——用户档案集合（字段扩展）
+在现有集合（不新建集合）上新增 `trainingProgress` 字段。现有的 `membershipActive`、`activated`、`unlockedPackages` 等字段不受影响。首页的 `loadTrainingProgress` 方法通过 `getProgress` 接口读取这个字段。
+```js
+// communication_user_profiles 文档新增字段
+{
+  _id: "用户openid",
+  membershipActive: true,          // 现有字段，不动
+  // ... 其他现有字段不动
+  // ===== 新增 =====
+  trainingProgress: {
+    currentPlan: {                  // 当前正在进行的计划，null 表示没有进行中的计划
+      planId: "onboarding_7_9",    // training_plans 集合的 _id
+      planType: "onboarding",      // 冗余存储，避免每次查 training_plans
+      ageGroup: "7-9",
+      startDate: "2026-08-07",     // 开始日期，用于计算"今天是第几天"
+      dayProgress: [true, true, false, false, false, false, false]  // 每天完成状态
+    },
+    completedPlans: ["onboarding_7_9"],  // 已完成的计划 ID 列表
+    onboardingDone: false,               // 入门计划是否已完成
+    selectedAgeGroup: "7-9"              // 用户首次选择的年龄段（入门时选的，后续复用）
+  }
+}
+```
+字段说明（首页直接或间接依赖的）：
+`currentPlan`：当前正在进行的计划。为 `null` 表示没有进行中的计划（用户可能还没开始、可能已完成、可能中途放弃）。首页通过判断 `currentPlan` 是否存在来区分"进行中"和"非进行中"两种大状态。
+`currentPlan.planType`：冗余存储字段，值为 `"onboarding"` 或 `"theme_week"`。首页用它区分 `in_progress`（入门进行中）和 `theme_week_active`（主题周进行中）两个前端状态，从而渲染不同视觉风格的进度卡片。
+`currentPlan.dayProgress`：布尔数组，长度等于计划天数。首页进度卡片用这个数组渲染圆点进度条（已完成=填充色，当前=描边高亮，未来=灰色）。
+`completedPlans`：字符串数组，存放已完成的计划 ID。首页的 `theme_week_done` 状态通过筛选其中以 `"tw_"` 开头的 ID 来统计已完成主题周数量。
+`onboardingDone`：布尔值，入门计划是否全部完成。首页用它区分"入门中途放弃，重新引导"（false）和"入门已完成"（true）。
+`selectedAgeGroup`：用户首次选择年龄段后持久化存储。首页用它判断用户是否曾经开始过任何计划（为空则 `trainingState = not_started`）。
+### 5.3 `communication_topics`——话题内容集合
+首页不直接查询这个集合，但通过 `getProgress` 和 `dailyRecommendations` 间接依赖。`getProgress` 返回的 `currentPlanInfo.todayTopicScenario` 就是从这个集合的 `scenario` 字段联查填充的。
+```js
+// 现有文档结构（仅列出首页相关字段）
+{
+  _id: "ph_7_9_054",           // 话题 ID
+  scenario: "遇到不开心的事不肯说，躲在房间里锁上门",  // 场景描述，首页进度卡片和今日推荐都展示
+  ageGroup: "7-9",             // 年龄段
+  level1: "情感与心理",         // 一级分类
+  level2: "情绪表达",           // 二级分类
+  status: "published",          // 发布状态
+  // ... 其他字段（wrongScripts, rightScripts, tips 等）首页不直接使用
+}
+```
+---
+## 六、首页依赖的云函数接口定义
+首页前端代码调用 `trainingService` 和 `topicData` 两个云函数。以下定义首页会触发的全部接口。
+### 6.1 `trainingService` 云函数
+新建独立云函数 `cloudfunctions/trainingService/index.js`，负责训练计划相关的全部后端逻辑。
+**文件结构：**
+```
+cloudfunctions/trainingService/
+├── index.js        # 主入口，action 路由
+├── package.json    # 依赖（仅 wx-server-sdk）
+└── config.json     # 云函数配置（超时设置等）
+```
+**package.json：**
+```json
+{
+  "name": "trainingService",
+  "version": "1.0.0",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}
+```
+**config.json：**
+```json
+{
+  "permissions": {
+    "openapi": []
+  },
+  "timeout": 10
+}
+```
+首页涉及该云函数的 3 个 action：`getProgress`、`startPlan`、`getPlans`。另外 3 个 action（`getPlanDetail`、`completeDay`、`getRelatedTopics`）不被首页直接调用，但为保持文档完整性在此一并说明。
+#### action: `getProgress`——获取用户当前训练状态（首页 `onLoad`/`onShow` 调用）
+请求参数：
+```js
+{ action: "getProgress" }
+```
+返回（完整结构，含首页方案扩展的 `themeWeekStats` 和 `themeWeekPreview`）：
+```js
+{
+  success: true,
+  trainingProgress: {
+    currentPlan: {              // 当前进行中的计划，null 表示没有
+      planId: "onboarding_7_9",
+      planType: "onboarding",   // "onboarding" | "theme_week"
+      ageGroup: "7-9",
+      startDate: "2026-08-07",
+      dayProgress: [true, true, false, false, false, false, false]
+    },
+    completedPlans: [],         // 已完成的计划 ID 列表
+    onboardingDone: false,      // 入门计划是否已完成
+    selectedAgeGroup: "7-9"     // 用户首次选择的年龄段
+  },
+  // 以下字段仅当 currentPlan 存在时返回
+  currentPlanInfo: {
+    title: "7天沟通入门·学龄版",
+    subtitle: "...",
+    totalDays: 7,
+    currentDay: 3,              // 根据 startDate 和当前日期计算
+    todayTopicId: "ph_7_9_054",
+    todayTopicScenario: "遇到不开心的事不肯说，躲在房间里锁上门",
+    todayGuide: "..."           // 当天引导文案
+  },
+  // 以下字段仅当 onboardingDone=true 且无 currentPlan 时返回
+  // 情况 A：已完成过主题周
+  themeWeekStats: {
+    completedCount: 2,
+    lastCompletedTitle: "读懂孩子的情绪信号",
+    availableCount: 3
+  },
+  // 情况 B：入门完成但未做过任何主题周
+  themeWeekPreview: {
+    tags: ["写作业不用吼", "手机不是洪水猛兽", "读懂孩子的情绪信号"]
+  }
+}
+```
+实现逻辑：
+1. 从 `cloud.getWXContext()` 获取用户 openid
+2. 查 `communication_user_profiles` 拿 `trainingProgress`。如果用户文档不存在，返回空结构（`currentPlan: null`, `completedPlans: []`, `onboardingDone: false`, `selectedAgeGroup: ""`）
+3. 如果有 `currentPlan`：查 `training_plans` 拿计划配置（`title`/`subtitle`/`days`）→ 根据 `startDate` 和当前日期计算 `currentDay` → 从 `days[currentDay-1]` 拿当天的 `topicId` 和 `guide` → 查 `communication_topics` 拿 `scenario` → 组装 `currentPlanInfo` 返回
+4. 如果没有 `currentPlan` 且 `onboardingDone=true`：从 `completedPlans` 中筛选以 `"tw_"` 开头的 ID → 如果有，查 `training_plans` 拿标题，统计 `completedCount` 和 `availableCount`，组装 `themeWeekStats` 返回 → 如果没有，查 `training_plans`（`planType: "theme_week"`, `ageGroup: selectedAgeGroup`, `status: "published"`）取前 3 个标题，组装 `themeWeekPreview` 返回
+性能建议：`getProgress` 会被首页 `onShow` 每次调用，需要对 `training_plans` 做进程级短 TTL 缓存（配置数据极少变动），避免每次请求都查数据库。
+#### action: `startPlan`——开始一个计划（首页 `startOnboarding` 调用）
+请求参数：
+```js
+{ action: "startPlan", planId: "onboarding_7_9" }
+```
+返回：
+```js
+{ success: true, startDate: "2026-08-07" }
+```
+实现逻辑：
+1. 校验 `planId` 对应的 `training_plans` 文档存在且 `status: "published"`
+2. 校验用户权限：入门计划（`isFree: true`）直接放行；主题周（`isFree: false`，所有主题周均需会员）需验证会员状态（查 `communication_user_profiles` 的 `membershipActive` 或 `activated` 字段）
+3. 如果用户已有未完成的 `currentPlan`，先将旧计划的 `planId` 移入 `completedPlans` 数组（标记为未完成中断），再开始新计划
+4. 在 `communication_user_profiles` 的 `trainingProgress` 中写入：`currentPlan = { planId, planType, ageGroup, startDate: 今天, dayProgress: 全false数组 }`，同时设置 `selectedAgeGroup`
+5. 返回 `startDate`
+首页的 `startOnboarding` 方法只调用入门计划（`isFree: true`），不涉及权限校验。主题周列表页和首页 `theme_week_done`/`onboarding_done` 状态下点击跳转主题周列表页，由该页面处理会员校验：非会员点击锁定的主题周时跳转 `activation` 页面。
+#### action: `getPlans`——获取计划列表（首页 `onboarding_done` 卡片可选使用）
+请求参数：
+```js
+{ action: "getPlans", planType: "theme_week", ageGroup: "7-9" }
+```
+返回：
+```js
+{
+  success: true,
+  plans: [
+    {
+      _id: "tw_7_9_homework",
+      title: "写作业不用吼",
+      subtitle: "6天搞定催作业的死循环",
+      icon: "pencil",
+      isFree: true,
+      dayCount: 6,
+      sortOrder: 0
+    },
+    // ...
+  ]
+}
+```
+实现逻辑：查询 `training_plans` 集合，按 `planType` + `ageGroup` + `status: "published"` 筛选，按 `sortOrder` 排序，只返回列表字段（不返回 `days` 详情，减少传输量）。
+首页通常不需要直接调用此接口——`getProgress` 在 `onboarding_done` 状态下已通过 `themeWeekPreview.tags` 返回了前 3 个主题周标题。`getPlans` 主要供 `theme-week-list` 页面使用。
+#### action: `getPlanDetail`——获取单个计划详情（首页不直接调用，训练计划页调用）
+请求参数：
+```js
+{ action: "getPlanDetail", planId: "onboarding_7_9" }
+```
+返回：
+```js
+{
+  success: true,
+  plan: {
+    _id: "onboarding_7_9",
+    planType: "onboarding",
+    ageGroup: "7-9",
+    title: "7天沟通入门·学龄版",
+    subtitle: "...",
+    days: [
+      {
+        day: 1,
+        topicId: "ph_7_9_001",
+        guide: "...",
+        label: "日常沟通",
+        topicScenario: "每天晚上写作业都要家长反复催促，一坐下就发呆、走神"  // 从 communication_topics 联查填充
+      },
+      // ...
+    ]
+  },
+  progress: {
+    startDate: "2026-08-07",
+    dayProgress: [true, true, false, false, false, false, false],
+    currentDay: 3
+  }
+}
+```
+实现逻辑：查 `training_plans` 拿计划配置 → 批量查 `communication_topics`（用 `_.in(topicIds)` 一次查完）填充每天的 `topicScenario` → 查 `communication_user_profiles` 拿用户进度 → 根据 `startDate` 计算 `currentDay`。
+此接口被 `training-plan` 页面调用，首页不直接调用。但首页点击进度卡片跳转到 `training-plan` 页面后，该页面会调用此接口。
+#### action: `completeDay`——标记某天完成（首页不直接调用，话题详情页调用）
+请求参数：
+```js
+{ action: "completeDay", planId: "onboarding_7_9", day: 3 }
+```
+返回：
+```js
+{
+  success: true,
+  dayProgress: [true, true, true, false, false, false, false],
+  planCompleted: false
+}
+```
+实现逻辑：校验 `planId` 与用户 `currentPlan.planId` 一致 → 更新 `dayProgress[day-1]` 为 `true` → 检查是否全部完成，如果是：把 `currentPlan` 的 `planId` 移入 `completedPlans`，设 `currentPlan` 为 `null`，如果是入门计划还要设 `onboardingDone: true`。
+此接口被 `topic-detail` 页面调用（用户从训练计划进入话题详情后，`onShow` 自动标记当天完成）。首页不直接调用，但首页的 `onShow` 会通过 `getProgress` 感知到进度变化并更新卡片。
+#### action: `getRelatedTopics`——获取话题关联推荐（首页不调用，话题详情页调用）
+请求参数：
+```js
+{ action: "getRelatedTopics", topicId: "ph_7_9_001" }
+```
+返回：
+```js
+{
+  success: true,
+  related: [
+    {
+      topicId: "ph_7_9_003",
+      type: "same_category",
+      label: "同场景",
+      scenario: "碰到不会的数学题直接掉眼泪或发脾气",
+      ageGroup: "7-9",
+      level1: "学习与作业管理"
+    },
+    // ... 最多 3 条
+  ]
+}
+```
+实现逻辑：查 `topic_relations` 集合拿关联配置 → 如果不存在走 fallback（同 `level1` + 同 `ageGroup` 随机取 2 条）→ 批量查 `communication_topics` 填充展示信息。
+首页不调用此接口。此处列出仅为保持 `trainingService` 接口定义的完整性。
+### 6.2 `topicData` 云函数（现有，首页已使用）
+首页现有功能已调用此云函数，不涉及新增 action。
+**首页使用的 action：`dailyRecommendations`**
+请求参数：
+```js
+{ action: "dailyRecommendations", dateKey: "2026-08-07" }
+```
+返回：
+```js
+{
+  success: true,
+  recommendations: [
+    {
+      _id: "ph_7_9_054",
+      scenario: "遇到不开心的事不肯说，躲在房间里锁上门",
+      ageGroup: "7-9",
+      level1: "情感与心理",
+      level2: "情绪表达",
+      // ... 其他展示字段
+    },
+    // ... 3 条
+  ]
+}
+```
+实现逻辑：按 `hash(dateKey + ageGroup) % total` 算法从 `communication_topics` 中取 3 条话题。具体实现见《话题库与话题详情页设计文档》3.5 节。
+### 6.3 `payService` 云函数（首页已使用）
+**首页使用的 action：`getUserPurchases`**（通过 `event.type` 路由，非 `event.action`）
+请求参数：
+```js
+{ type: "getUserPurchases" }
+```
+返回：
+```js
+{
+  success: true,
+  isMember: true,         // membershipActive 或 activated 为 true
+  membershipName: "亲子沟通会员",
+  purchasedItems: [...]   // 单独购买的包列表
+}
+```
+首页在 `onPackageTap` 中调用此接口检查会员状态。会员直接进入专题包详情页，非会员跳转 `activation` 开通页面。C 区的专题包横滑设计见《专题包功能设计与实现方案》。
+---
+## 七、`index.js` 完整实现方案
+### 7.1 文件头部与依赖
+```js
+const cloud = require("../../utils/cloud");
+const PAY_SERVICE_NAME = "payService";
+const MEMBERSHIP_CACHE_KEY = "membership_access_cache";
+const DAILY_RECOMMENDATION_CACHE_PREFIX = "daily_reco_";
+const AGE_RECOMMENDATION_META = {
+  "3-6": { tone: "coral", mark: "S" },
+  "7-9": { tone: "blue", mark: "L" },
+  "10-12": { tone: "purple", mark: "R" },
+};
+// 工具函数：getDateKey, withRecommendationMeta,
+// getCachedMembership, setCachedMembership
+// C 区相关函数由专题包方案管辖
+```
+### 7.2 data 定义
+```js
+data: {
+  // === 现有字段，保持不变 ===
+  recommendations: [],
+  recommendationLoading: true,
+  recommendationError: "",
+  // === 新增：训练引导 ===
+  trainingState: "not_started",   // 5 种状态之一
+  trainingCard: null,             // 卡片展示数据对象
+},
+```
+### 7.3 生命周期方法
+```js
+onLoad() {
+  this.loadDailyRecommendations();
+  this.loadTrainingProgress();    // 新增
+},
+onShow() {
+  this.loadTrainingProgress();    // 新增：每次回到首页刷新，因为训练进度可能变化
+},
+```
+> C 区的专题包数据加载由专题包方案负责（`loadPackages`）。
+`onShow` 中刷新训练进度是关键——用户可能在 `training-plan` 页面完成了某天，或者从话题详情页标记了完成，返回首页时需要同步状态更新。
+### 7.4 `loadTrainingProgress` 完整实现
+```js
+loadTrainingProgress() {
+  cloud.callFunction({
+    name: "trainingService",
+    data: { action: "getProgress" },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (!result.success) return;
+      const tp = result.trainingProgress || {};
+      // 状态一：从未开始
+      if (!tp.selectedAgeGroup) {
+        this.setData({ trainingState: "not_started", trainingCard: null });
+        return;
+      }
+      // 状态二/四：有进行中的计划
+      if (tp.currentPlan) {
+        const info = result.currentPlanInfo || {};
+        const planType = tp.currentPlan.planType;
+        this.setData({
+          trainingState: planType === "theme_week" ? "theme_week_active" : "in_progress",
+          trainingCard: {
+            planId: tp.currentPlan.planId,
+            title: info.title,
+            subtitle: info.subtitle,
+            totalDays: info.totalDays,
+            currentDay: info.currentDay,
+            todayTopicScenario: info.todayTopicScenario,
+            todayGuide: info.todayGuide,
+            dayProgress: tp.currentPlan.dayProgress,
+          },
+        });
+        return;
+      }
+      // 没有进行中的计划
+      if (!tp.onboardingDone) {
+        // 入门中途放弃，重新引导
+        this.setData({ trainingState: "not_started", trainingCard: null });
+        return;
+      }
+      // 状态三：入门完成，未选主题周
+      const themeWeekStats = result.themeWeekStats || {};
+      if (!themeWeekStats.completedCount || themeWeekStats.completedCount === 0) {
+        const preview = result.themeWeekPreview || {};
+        this.setData({
+          trainingState: "onboarding_done",
+          trainingCard: {
+            ageGroup: tp.selectedAgeGroup,
+            previewTags: preview.tags || [],
+          },
+        });
+        return;
+      }
+      // 状态五：主题周完成，长期常驻
+      this.setData({
+        trainingState: "theme_week_done",
+        trainingCard: {
+          completedCount: themeWeekStats.completedCount,
+          lastCompletedTitle: themeWeekStats.lastCompletedTitle || "",
+          availableCount: themeWeekStats.availableCount || 0,
+        },
+      });
+    })
+    .catch((error) => {
+      console.warn("load training progress failed", error);
+      // 静默失败，首页其他功能正常使用
+    });
+}
+```
+### 7.5 页面跳转方法
+```js
+// 未开始：弹出年龄段选择，开始入门计划
+startOnboarding() {
+  wx.showActionSheet({
+    itemList: ["3-6岁", "7-9岁", "10-12岁"],
+    success: (res) => {
+      const ageGroups = ["3-6", "7-9", "10-12"];
+      const ageGroup = ageGroups[res.tapIndex];
+      const planId = `onboarding_${ageGroup.replace("-", "_")}`;
+      wx.showLoading({ title: "准备中…" });
+      cloud.callFunction({
+        name: "trainingService",
+        data: { action: "startPlan", planId },
+      }).then((response) => {
+        wx.hideLoading();
+        const result = response.result || {};
+        if (!result.success) throw new Error(result.message);
+        wx.navigateTo({
+          url: `/pages/training-plan/index?planId=${encodeURIComponent(planId)}`,
+        });
+      }).catch((error) => {
+        wx.hideLoading();
+        wx.showToast({ title: "启动失败，请重试", icon: "none" });
+      });
+    },
+  });
+},
+// 进行中：跳转到训练计划详情页
+openTrainingPlan() {
+  const card = this.data.trainingCard;
+  if (!card || !card.planId) return;
+  wx.navigateTo({
+    url: `/pages/training-plan/index?planId=${encodeURIComponent(card.planId)}`,
+  });
+},
+// 入门完成/主题周完成：跳转到主题周列表页
+openThemeWeekList() {
+  const card = this.data.trainingCard;
+  const ageGroup = (card && card.ageGroup) || "7-9";
+  wx.navigateTo({
+    url: `/pages/theme-week-list/index?ageGroup=${encodeURIComponent(ageGroup)}`,
+  });
+},
+```
+注意：`openThemeWeekList` 在 `theme_week_done` 状态下跳转时，`trainingCard.ageGroup` 可能为 `undefined`（因为 `theme_week_done` 的 `trainingCard` 只包含 `completedCount`/`lastCompletedTitle`/`availableCount`）。此时 fallback 到 `"7-9"`，但更正确的做法是在 `loadTrainingProgress` 中为 `theme_week_done` 状态也存入 `ageGroup`：
+```js
+// 状态五的 setData 补充 ageGroup
+this.setData({
+  trainingState: "theme_week_done",
+  trainingCard: {
+    ageGroup: tp.selectedAgeGroup,   // 补充
+    completedCount: themeWeekStats.completedCount,
+    lastCompletedTitle: themeWeekStats.lastCompletedTitle || "",
+    availableCount: themeWeekStats.availableCount || 0,
+  },
+});
+```
+### 7.6 现有方法完整实现
+以下方法在首页中已实现，重写时保持不变。
+#### 7.6.1 工具函数
+```js
+function getDateKey(date) {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+function withRecommendationMeta(topic) {
+  const meta = AGE_RECOMMENDATION_META[topic.ageGroup] || AGE_RECOMMENDATION_META["3-6"];
+  return Object.assign({}, topic, meta);
+}
+function getCachedMembership() {
+  try {
+    const cache = wx.getStorageSync(MEMBERSHIP_CACHE_KEY);
+    return cache && cache.purchased ? cache : null;
+  } catch (error) {
+    console.warn("read membership cache failed", error);
+    return null;
+  }
+}
+function setCachedMembership(result = {}) {
+  try {
+    wx.setStorageSync(MEMBERSHIP_CACHE_KEY, {
+      purchased: true,
+      membershipName: result.membershipName || "",
+      updatedAt: Date.now(),
+    });
+  } catch (error) {
+    console.warn("write membership cache failed", error);
+  }
+}
+```
+`getCachedMembership`：读取本地缓存的会员状态。如果缓存存在且 `purchased` 为 true，返回缓存对象；否则返回 null。用于 C 区专题包点击时快速判断是否为会员，避免每次点击都调云函数。
+`setCachedMembership`：支付成功后写入缓存。缓存结构 `{ purchased: true, membershipName, updatedAt }`。
+#### 7.6.2 `loadDailyRecommendations` — 加载今日推荐（D 区）
+```js
+loadDailyRecommendations() {
+  const dateKey = getDateKey(new Date());
+  const cacheKey = `${DAILY_RECOMMENDATION_CACHE_PREFIX}${dateKey}`;
+  // 1. 先读本地缓存
+  try {
+    const cached = wx.getStorageSync(cacheKey);
+    if (cached && cached.length) {
+      this.setData({
+        recommendations: cached.map(withRecommendationMeta),
+        recommendationLoading: false,
+        recommendationError: "",
+      });
+    } else {
+      this.setData({ recommendationLoading: true, recommendationError: "" });
+    }
+  } catch (error) {
+    console.warn("read daily recommendations cache failed", error);
+    this.setData({ recommendationLoading: true, recommendationError: "" });
+  }
+  // 2. 再调云函数更新
+  cloud.callFunction({
+    name: "topicData",
+    data: { action: "dailyRecommendations", dateKey },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (!result.success) {
+        throw new Error(result.message || "获取推荐话题失败");
+      }
+      const recommendations = result.recommendations || [];
+      this.setData({
+        recommendations: recommendations.map(withRecommendationMeta),
+        recommendationLoading: false,
+        recommendationError: "",
+      });
+      try {
+        wx.setStorageSync(cacheKey, recommendations);
+      } catch (error) {
+        console.warn("write daily recommendations cache failed", error);
+      }
+    })
+    .catch((error) => {
+      console.error("load daily recommendations failed", error);
+      if (this.data.recommendations.length) {
+        this.setData({ recommendationLoading: false });
+        return;
+      }
+      this.setData({
+        recommendations: [],
+        recommendationLoading: false,
+        recommendationError: "暂时无法加载推荐话题",
+      });
+    });
+}
+```
+缓存策略：cache key 为 `daily_reco_YYYY-MM-DD`，按日期区分。缓存命中时先渲染（用户立即看到内容），再静默调云函数更新。云函数成功后覆写缓存和页面数据；失败时如果已有缓存数据则保留不报错，无缓存则显示错误。
+#### 7.6.3 `openTopic` — 跳转话题详情页
+```js
+openTopic(event) {
+  const id = event.currentTarget.dataset.id;
+  wx.navigateTo({
+    url: `/pages/topic-detail/index?id=${encodeURIComponent(id)}`,
+  });
+}
+```
+#### 7.6.4 `openLibrary` — 跳转话题库
+```js
+openLibrary() {
+  wx.switchTab({ url: "/pages/topic-library/index" });
+}
+```
+#### 7.6.5 会员状态本地缓存机制
+首页使用 `membership_access_cache` 本地缓存键存储会员状态，设计目的是减少 C 区专题包点击时的云函数调用延迟：
+- 缓存结构：`{ purchased: true, membershipName: "亲子沟通会员", updatedAt: 1691510400000 }`
+- 写入时机：C 区点击时 `getUserPurchases` 返回 `isMember` 或 `purchasedItems.length > 0` 时调用 `setCachedMembership`
+- 读取时机：C 区点击首先调用 `getCachedMembership`，命中则直接进入专题包详情，不再调云函数
+- 失效策略：无 TTL，支付成功后永久有效。用户在小程序设置中清除存储空间后缓存失效，下次点击会重新调云函数
+- 注意：此缓存仅用于首页 C 区的快速判断，我的页 `onShow` 通过 `getUserPurchases` 获取最新状态，不依赖此缓存
+- 注：C 区的点击逻辑由《专题包功能设计与实现方案》管辖，本缓存机制的调用方在专题包方案落地后为 `onPackageTap`
+### 7.7 完整 `index.js` 结构总览
+```
+依赖引入：cloud
+常量定义：PAY_SERVICE_NAME, MEMBERSHIP_CACHE_KEY, DAILY_RECOMMENDATION_CACHE_PREFIX, AGE_RECOMMENDATION_META
+工具函数：getDateKey, withRecommendationMeta, getCachedMembership, setCachedMembership
+(C 区相关函数由专题包方案管辖)
+Page({
+  data: {
+    recommendations, recommendationLoading, recommendationError,  // 现有
+    trainingState, trainingCard,                                            // 新增
+  },
+  onLoad()  → loadDailyRecommendations + loadTrainingProgress
+  onShow()  → loadTrainingProgress
+// 以下方法保持不变
+loadDailyRecommendations() → topicData dailyRecommendations
+  openTopic()             → navigateTo topic-detail
+  openLibrary()           → switchTab topic-library
+// C 区方法（由专题包方案管辖）
+  // loadPackages()       → packageData list
+  // onPackageTap()       → package-detail / activation
+  // 新增方法
+  loadTrainingProgress()  → trainingService getProgress → 设置 trainingState + trainingCard
+  startOnboarding()       → ActionSheet → trainingService startPlan → navigateTo training-plan
+  openTrainingPlan()      → navigateTo training-plan
+  openThemeWeekList()     → navigateTo theme-week-list
+})
+```
+---
+## 八、`index.wxml` 完整模板结构
+```xml
+<view class="page-shell home-page">
+  <!-- A. Hero 品牌区（不变） -->
+  <view class="hero">
+    <view class="hero-copy">
+      <view class="hero-title">亲子对话</view>
+      <view class="hero-subtitle">用心沟通，陪伴成长</view>
+    </view>
+    <image class="hero-logo" src="/assets/icons/hero-parent-dialog.png" mode="aspectFit" />
+  </view>
+  <!-- B. 训练引导卡片区（根据 trainingState 切换） -->
+  <!-- B1: 未开始 -->
+  <view wx:if="{{trainingState === 'not_started'}}" class="training-card start-card" bindtap="startOnboarding">
+    <view class="training-card-icon onboarding-icon">7</view>
+    <view class="training-card-body">
+      <view class="training-card-title">7天沟通入门</view>
+      <view class="training-card-subtitle">选择孩子年龄段，每天一条，从最日常的场景开始</view>
+    </view>
+    <view class="training-card-arrow">→</view>
+  </view>
+  <!-- B2: 入门进行中 -->
+  <view wx:elif="{{trainingState === 'in_progress'}}" class="training-card progress-card onboarding-style" bindtap="openTrainingPlan">
+    <view class="progress-header">
+      <view class="progress-title">{{trainingCard.title}}</view>
+      <view class="progress-badge">Day {{trainingCard.currentDay}}/{{trainingCard.totalDays}}</view>
+    </view>
+    <view class="progress-dots">
+      <view
+        wx:for="{{trainingCard.dayProgress}}"
+        wx:key="index"
+        class="progress-dot {{item ? 'done' : index + 1 === trainingCard.currentDay ? 'current' : 'future'}}"
+      ></view>
+    </view>
+    <view class="progress-today">
+      <view class="today-label">今日话题</view>
+      <view class="today-scenario">{{trainingCard.todayTopicScenario}}</view>
+      <view class="today-guide">{{trainingCard.todayGuide}}</view>
+    </view>
+  </view>
+  <!-- B3: 入门完成 -->
+  <view wx:elif="{{trainingState === 'onboarding_done'}}" class="training-card complete-card" bindtap="openThemeWeekList">
+    <view class="complete-badge">✓</view>
+    <view class="training-card-body">
+      <view class="training-card-title">恭喜完成7天入门！</view>
+      <view class="training-card-subtitle">选一个最关心的主题，继续深入练习</view>
+      <view wx:if="{{trainingCard.previewTags.length}}" class="complete-preview-tags">
+        <view class="preview-tag" wx:for="{{trainingCard.previewTags}}" wx:key="*this">{{item}}</view>
+      </view>
+    </view>
+    <view class="training-card-arrow">→</view>
+  </view>
+  <!-- B4: 主题周进行中 -->
+  <view wx:elif="{{trainingState === 'theme_week_active'}}" class="training-card progress-card theme-week-style" bindtap="openTrainingPlan">
+    <view class="progress-header">
+      <view class="progress-title-row">
+        <view class="plan-type-tag">主题周</view>
+        <view class="progress-title">{{trainingCard.title}}</view>
+      </view>
+      <view class="progress-badge">Day {{trainingCard.currentDay}}/{{trainingCard.totalDays}}</view>
+    </view>
+    <view class="progress-dots">
+      <view
+        wx:for="{{trainingCard.dayProgress}}"
+        wx:key="index"
+        class="progress-dot {{item ? 'done' : index + 1 === trainingCard.currentDay ? 'current' : 'future'}}"
+      ></view>
+    </view>
+    <view class="progress-today">
+      <view class="today-label">今日话题</view>
+      <view class="today-scenario">{{trainingCard.todayTopicScenario}}</view>
+      <view class="today-guide">{{trainingCard.todayGuide}}</view>
+    </view>
+  </view>
+  <!-- B5: 主题周完成（长期常驻） -->
+  <view wx:elif="{{trainingState === 'theme_week_done'}}" class="training-card growth-card" bindtap="openThemeWeekList">
+    <view class="growth-medal">{{trainingCard.completedCount}}</view>
+    <view class="training-card-body">
+      <view class="training-card-title">已完成 {{trainingCard.completedCount}} 个主题周</view>
+      <view class="training-card-subtitle">最近完成：{{trainingCard.lastCompletedTitle}}</view>
+      <view class="growth-footer">
+        <text wx:if="{{trainingCard.availableCount > 0}}">还有 {{trainingCard.availableCount}} 个主题等你探索</text>
+        <text wx:else>全部主题已完成！可以到话题库自由浏览更多话题</text>
+        <text class="training-card-arrow">→</text>
+      </view>
+    </view>
+  </view>
+  <!-- C. 热门话题（专题包横滑，由专题包方案管辖，此处为占位） -->
+  <!-- 专题包方案会提供 loadPackages + onPackageTap + packageData list 的完整实现 -->
+  <!-- C 区的 WXML 由专题包方案定义 -->
+  <!-- D. 今日推荐（不变） -->
+  <view class="section-heading recommendation-title">
+    <view class="heading-line"></view>
+    <text>今日推荐</text>
+  </view>
+  <view wx:if="{{recommendationError}}" class="home-state error">{{recommendationError}}</view>
+  <view wx:elif="{{recommendationLoading}}" class="home-state">正在加载今日推荐…</view>
+  <view wx:elif="{{!recommendations.length}}" class="home-state">暂无推荐话题</view>
+  <view wx:else class="recommendation-list">
+    <view
+      wx:for="{{recommendations}}"
+      wx:key="_id"
+      class="recommendation-card soft-card"
+      data-id="{{item._id}}"
+      bindtap="openTopic"
+    >
+      <view class="recommendation-dot {{item.tone}}">{{item.mark}}</view>
+      <view class="recommendation-main">
+        <view class="recommendation-text">{{item.scenario}}</view>
+        <view class="tag-row">
+          <text class="age-tag {{item.tone}}">{{item.ageGroup}}岁</text>
+          <text class="topic-tag {{item.tone}}">{{item.level2}}</text>
+        </view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+  </view>
+</view>
+```
+---
+## 九、`index.wxss` 样式规范
+以下样式包括 A/D 区的现有样式和 B 区训练引导卡片的样式。C 区样式由专题包方案管辖。
+### 9.1 现有样式（A/D 区）
+A 区 Hero：
+```css
+.hero {
+  min-height: 300rpx;
+  padding: 50rpx 42rpx 46rpx 48rpx;
+  box-sizing: border-box;
+  border-radius: 42rpx;
+  background: linear-gradient(135deg, #F5E6D8 0%, #EEDDD0 52%, #E8D5C8 100%);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.hero-title { font-size: 58rpx; line-height: 1.2; font-weight: 700; color: #30231e; }
+.hero-subtitle { margin-top: 22rpx; color: #907d74; font-size: 30rpx; }
+.hero-progress { margin-top: 24rpx; height: 12rpx; background: rgba(255,255,255,0.5); border-radius: 6rpx; }
+.hero-progress-fill { height: 100%; background: #C4956A; border-radius: 6rpx; }
+.hero-stats { margin-top: 12rpx; font-size: 24rpx; color: #907d74; }
+```
+D 区今日推荐：
+```css
+.recommendation-list { display: flex; flex-direction: column; gap: 20rpx; }
+.recommendation-card {
+  min-height: 178rpx; box-sizing: border-box; padding: 30rpx 28rpx;
+  display: flex; align-items: center;
+}
+.recommendation-dot {
+  width: 62rpx; height: 62rpx; border-radius: 50%; color: #fff;
+  display: flex; align-items: center; justify-content: center; font-size: 26rpx; flex-shrink: 0;
+}
+.recommendation-dot.coral { background: #E0A998; }
+.recommendation-dot.blue { background: #9AB8D6; }
+.recommendation-dot.purple { background: #9870cf; }
+.recommendation-text { font-size: 29rpx; line-height: 1.45; font-weight: 600; }
+.age-tag, .topic-tag { padding: 7rpx 18rpx; border-radius: 24rpx; font-size: 21rpx; }
+.age-tag.coral, .topic-tag.coral { background: #fff0eb; color: #e88872; }
+.age-tag.blue, .topic-tag.blue { background: #eaf4ff; color: #659acc; }
+.age-tag.purple, .topic-tag.purple { background: #f2eaff; color: #8b67bd; }
+.chevron { color: #bdb6b2; font-size: 52rpx; }
+.home-state {
+  padding: 34rpx 30rpx; border-radius: 28rpx; background: #fff;
+  color: #9f948e; font-size: 25rpx; line-height: 1.6;
+  box-shadow: 0 10rpx 28rpx rgba(120, 90, 74, 0.06);
+}
+.home-state.error { background: #fff0e8; color: #a96751; }
+```
+通用：
+```css
+.section-heading {
+  margin: 48rpx 6rpx 24rpx; display: flex; align-items: center;
+  font-size: 36rpx; font-weight: 700;
+}
+.heading-line {
+  width: 10rpx; height: 44rpx; border-radius: 8rpx;
+  background: #C4956A; margin-right: 18rpx;
+}
+```
+### 9.2 训练卡片通用框架
+```css
+/* ===== 训练引导卡片 ===== */
+.training-card {
+  margin: 24rpx 0 0;
+  border-radius: 28rpx;
+  padding: 32rpx 36rpx;
+  display: flex;
+  align-items: center;
+  box-shadow: 0 12rpx 30rpx rgba(98, 78, 67, 0.08);
+  transition: transform 0.15s ease;
+}
+.training-card:active {
+  transform: scale(0.98);
+}
+.training-card-body {
+  flex: 1;
+  min-width: 0;
+  margin: 0 20rpx;
+}
+.training-card-title {
+  font-size: 33rpx;
+  font-weight: 700;
+  line-height: 1.3;
+}
+.training-card-subtitle {
+  margin-top: 12rpx;
+  font-size: 25rpx;
+  line-height: 1.4;
+  opacity: 0.72;
+}
+.training-card-arrow {
+  font-size: 42rpx;
+  flex-shrink: 0;
+  opacity: 0.5;
+}
+```
+### 9.3 形态一：入门邀请卡片
+```css
+.start-card {
+  background: #FFFFFF;
+}
+.start-tag {
+  display: inline-block;
+  font-size: 22rpx;
+  font-weight: 600;
+  padding: 6rpx 16rpx;
+  border-radius: 16rpx;
+  background: rgba(196, 149, 106, 0.12);
+  color: #C4956A;
+  margin-bottom: 16rpx;
+}
+.start-card .training-card-title { color: #30231e; font-size: 36rpx; font-weight: 800; }
+.start-card .training-card-subtitle { color: #907d74; margin-top: 8rpx; }
+.start-btn {
+  margin-top: 24rpx;
+  width: 100%;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: #C4956A;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+```
+### 9.4 形态二/四：进度卡片（入门进行中 / 主题周进行中）
+```css
+.progress-card {
+  flex-direction: column;
+  align-items: stretch;
+}
+.onboarding-style {
+  background: #FFFFFF;
+}
+.theme-week-style {
+  background: #FFFFFF;
+}
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.progress-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+}
+.plan-type-tag {
+  font-size: 20rpx;
+  font-weight: 600;
+  padding: 4rpx 14rpx;
+  border-radius: 16rpx;
+  background: rgba(196, 149, 106, 0.12);
+  color: #C4956A;
+}
+.progress-title {
+  font-size: 31rpx;
+  font-weight: 700;
+  color: #30231e;
+}
+.onboarding-style .progress-title { color: #30231e; }
+.theme-week-style .progress-title { color: #30231e; }
+.progress-badge {
+  font-size: 24rpx;
+  font-weight: 600;
+  padding: 8rpx 20rpx;
+  border-radius: 20rpx;
+  background: rgba(255, 255, 255, 0.7);
+  flex-shrink: 0;
+}
+.onboarding-style .progress-badge { color: #C4956A; }
+.theme-week-style .progress-badge { color: #C4956A; }
+/* 进度圆点 */
+.progress-dots {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 24rpx;
+}
+.progress-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  flex: 1;
+}
+.onboarding-style .progress-dot.done { background: #C4956A; }
+.onboarding-style .progress-dot.current {
+  background: transparent;
+  border: 6rpx solid #C4956A;
+  box-sizing: border-box;
+}
+.onboarding-style .progress-dot.future { background: #E8DDD5; }
+.theme-week-style .progress-dot.done { background: #C4956A; }
+.theme-week-style .progress-dot.current {
+  background: transparent;
+  border: 6rpx solid #C4956A;
+  box-sizing: border-box;
+}
+.theme-week-style .progress-dot.future { background: #E8DDD5; }
+/* 今日话题预览 */
+.progress-today {
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 20rpx;
+  padding: 24rpx 26rpx;
+}
+.today-label {
+  font-size: 21rpx;
+  color: #9f948e;
+  margin-bottom: 10rpx;
+}
+.today-scenario {
+  font-size: 28rpx;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #30231e;
+}
+.today-guide {
+  margin-top: 12rpx;
+  font-size: 23rpx;
+  line-height: 1.5;
+  color: #8a7d76;
+}
+```
+### 9.5 形态三：入门完成过渡卡片
+```css
+.complete-card {
+  background: #FFFFFF;
+}
+.complete-badge {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #27A866;
+  color: #fff;
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.complete-card .training-card-title { color: #30231e; }
+.complete-card .training-card-subtitle { color: #907d74; margin-top: 8rpx; line-height: 1.5; }
+.complete-btn {
+  margin-top: 24rpx;
+  width: 100%;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: #C4956A;
+  color: #fff;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.complete-hint {
+  margin-top: 12rpx;
+  text-align: center;
+  font-size: 23rpx;
+  color: #A59A94;
+}
+```
+### 9.6 形态五：成长概览卡片
+```css
+.growth-card {
+  background: #FFFFFF;
+}
+.growth-badge {
+  width: 48rpx;
+  height: 48rpx;
+  border-radius: 50%;
+  background: #27A866;
+  color: #fff;
+  font-size: 28rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.growth-dots {
+  display: flex;
+  gap: 8rpx;
+  margin-top: 8rpx;
+}
+.growth-dots .dot { width: 20rpx; height: 20rpx; border-radius: 50%; background: #27A866; }
+.growth-card .training-card-title { color: #30231e; }
+.growth-card .training-card-subtitle { color: #907d74; }
+.growth-btn {
+  margin-top: 24rpx;
+  width: 100%;
+  height: 88rpx;
+  border-radius: 20rpx;
+  background: transparent;
+  border: 2rpx solid #C4956A;
+  color: #C4956A;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.growth-link {
+  margin-top: 16rpx;
+  text-align: center;
+  font-size: 24rpx;
+  color: #A59A94;
+}
+```
+---
+## 十、`index.json` 配置
+```json
+{
+  "navigationBarTitleText": "亲子对话",
+  "enablePullDownRefresh": false
+}
+```
+首页的 `index.json` 配置简单，训练引导卡片是纯前端渲染，不引入新组件，不启用下拉刷新。
+---
+## 十一、首页跳转目标页面设计
+首页通过 `wx.navigateTo` 跳转到两个新页面（非 tabBar 页面）。以下给出这两个页面的核心设计，使首页方案自包含。
+### 11.1 `pages/training-plan/index`——训练计划详情页
+入门计划和主题周共用同一个页面，通过 `planId` 参数区分。
+**路由参数**：`/pages/training-plan/index?planId=onboarding_7_9`
+**文件清单**：
+```
+miniprogram/pages/training-plan/
+├── index.js
+├── index.json
+├── index.wxml
+└── index.wxss
+```
+**核心交互（`index.js`）**：
+```js
+const cloud = require("../../utils/cloud");
+Page({
+  data: {
+    plan: null,          // 计划配置（含 days 数组）
+    progress: null,      // 用户进度
+    loading: true,
+    errorMessage: "",
+  },
+  onLoad(options) {
+    this._planId = decodeURIComponent(options.planId || "");
+    if (!this._planId) {
+      this.setData({ loading: false, errorMessage: "缺少计划 ID" });
+      return;
+    }
+    this.loadPlanDetail(this._planId);
+  },
+  onShow() {
+    // 从详情页返回时刷新进度（用户可能刚看完一条话题）
+    if (this._planId) this.loadPlanDetail(this._planId);
+  },
+  loadPlanDetail(planId) {
+    cloud.callFunction({
+      name: "trainingService",
+      data: { action: "getPlanDetail", planId },
+    }).then((response) => {
+      const result = response.result || {};
+      if (!result.success) throw new Error(result.message);
+      this.setData({ plan: result.plan, progress: result.progress, loading: false });
+    }).catch(() => {
+      this.setData({ loading: false, errorMessage: "加载失败" });
+    });
+  },
+  openDay(event) {
+    const day = event.currentTarget.dataset.day;
+    const progress = this.data.progress;
+    if (day > progress.currentDay) return;  // 只能打开已完成或当天
+    const dayConfig = this.data.plan.days[day - 1];
+    if (!dayConfig) return;
+    wx.navigateTo({
+      url: `/pages/topic-detail/index?id=${encodeURIComponent(dayConfig.topicId)}&fromTraining=${this._planId}&day=${day}`,
+    });
+  },
+});
+```
+**页面结构（`index.wxml`）要点**：顶部展示计划标题+副标题 → 纵向时间线，每天一张卡片（天数圆圈 + 场景标题 + 学习主题标签 + 完成状态图标）→ 当天卡片高亮 + "开始今天的练习"按钮 → 未来天数灰色+锁图标。
+### 11.2 `pages/theme-week-list/index`——主题周选择列表页
+入门计划完成后展示的主题周列表页面。
+**路由参数**：`/pages/theme-week-list/index?ageGroup=7-9`
+**文件清单**：
+```
+miniprogram/pages/theme-week-list/
+├── index.js
+├── index.json
+├── index.wxml
+└── index.wxss
+```
+**核心交互**：
+`onLoad` 时调用 `trainingService` 的 `getPlans` action（`planType: "theme_week"`, `ageGroup` 从路由参数取）→ 拿到主题周列表 → 展示卡片列表（标题/副标题/图标/天数/免费 or 会员标签）→ 点击某个主题周 → 调用 `startPlan` → 成功后跳转到 `training-plan` 页面。
+付费主题周的处理：点击付费主题周时，先调 `payService` 的 `getUserPurchases` 检查会员状态，非会员跳转 `activation` 页面，会员直接 `startPlan`。
+主题周列表页展示该年龄段所有已发布的主题周卡片，已完成的显示"✓ 已完成"标记，进行中的显示"继续"按钮，未开始的显示主题周标题/副标题/天数/免费或会员标签。
+### 11.3 用户到达主题周列表页的路径
+1. 从首页入门完成卡片进入——`onboarding_done` 状态点击卡片，路由参数带 `ageGroup`
+2. 从首页成长概览卡片进入——`theme_week_done` 状态点击卡片，路由参数带 `ageGroup`
+3. 从训练计划页面主动选择"换个主题"进入——用户在 `training-plan` 页面有"结束当前主题周"操作后，跳转到主题周列表
+---
+## 十二、工程配置
+### 12.1 `app.json` 路由注册
+`pages` 数组包含以下路径：
+```json
+{
+  "pages": [
+    "pages/index/index",
+    "pages/topic-library/index",
+    "pages/topic-detail/index",
+    "pages/mine/index",
+    "pages/activation/index",
+    "pages/favorites/index",
+    "pages/developer-import/index",
+    "pages/training-plan/index",
+    "pages/theme-week-list/index"
+  ]
+}
+```
+> 专题包功能还需新增 `pages/package-list/index`、`pages/package-detail/index`、`pages/package-reader/index` 三个路径，重写时需一并纳入 pages 数组。完整的 app.json pages 数组见《项目总览与技术架构》。
+新增的两个页面不是 tabBar 页面，通过 `wx.navigateTo` 跳转，不影响现有 tabBar 结构（首页/话题库/我的）。
+### 12.2 云函数部署
+`cloudfunctions/trainingService/` 目录包含 `index.js`、`package.json`、`config.json` 三个文件。部署方式：在微信开发者工具中右键"上传并部署：云端安装依赖"。
+### 12.3 云数据库集合创建
+在云开发控制台手动创建 `training_plans` 集合，并录入初始配置数据（3 套入门计划 + 首批 3-6 个主题周）。`communication_user_profiles` 集合已存在，只需在代码中通过 `set` 语义写入 `trainingProgress` 字段即可，无需手动建字段。
+---
+## 十三、核心文件说明
+### 页面文件
+| 文件路径 | 说明 |
+|---|---|
+| `miniprogram/pages/index/index.js` | 首页主逻辑：训练进度加载、每日推荐加载、用户状态管理 |
+| `miniprogram/pages/index/index.wxml` | 首页模板：Hero + 训练引导卡片（5 种形态条件渲染）+ 专题包横滑 + 今日推荐 |
+| `miniprogram/pages/index/index.wxss` | 首页样式：Hero 渐变、推荐卡片、训练卡片样式 |
+| `miniprogram/pages/index/index.json` | 页面配置（无需引入组件） |
+| `miniprogram/pages/training-plan/index.*` | 训练计划详情页（入门计划和主题周共用） |
+| `miniprogram/pages/theme-week-list/index.*` | 主题周选择列表页 |
+### 云函数文件
+| 文件路径 | 说明 |
+|---|---|
+| `cloudfunctions/trainingService/index.js` | 训练引导云函数主入口（6 个 action） |
+| `cloudfunctions/trainingService/package.json` | 依赖声明 |
+| `cloudfunctions/trainingService/config.json` | 云函数配置 |
+### 云数据库集合
+| 集合名 | 说明 |
+|---|---|
+| `training_plans` | 训练计划配置表（入门计划 + 主题周编排数据） |
+| `topic_relations` | 话题关联推荐配置表 |
+| `communication_user_profiles` | 用户档案集合，扩展 `trainingProgress` 字段 |
+## 十四、开发节奏
+重写时按三个阶段分批实现，每个阶段可独立验证。
+**阶段一（最小可用版本，预计 3-4 天）**：完成第一层"7天入门计划"。新增 `trainingService` 云函数（只实现 `getProgress`/`getPlanDetail`/`startPlan`/`completeDay` 四个 action）+ `training-plan` 页面 + 首页训练卡片（只实现 `not_started`/`in_progress`/`onboarding_done` 三种形态）。录入 3 套入门计划的配置数据。上线后新用户即可体验"每天一条、7天入门"的引导流程。此时的首页 `getProgress` 不需要返回 `themeWeekStats`/`themeWeekPreview`。
+**阶段二（预计 2-3 天）**：完成第二层"主题周"。新增 `theme-week-list` 页面 + `trainingService` 的 `getPlans` action。扩展 `getProgress` 返回 `themeWeekStats`/`themeWeekPreview` 字段。首页训练卡片补全 `theme_week_active`/`theme_week_done` 两种形态。录入首批 3-6 个主题周配置。`training-plan` 页面已在阶段一完成，主题周复用同一个页面。
+**阶段三（预计 2 天）**：完成第三层"场景关联推荐" + 话题库分类标签栏。新增 `topic_relations` 集合 + `trainingService` 的 `getRelatedTopics` action + 话题详情页底部推荐区域（见《话题库与话题详情页设计文档》） + `topicData` 云函数新增 `level1List` action 和 `list` 扩展 + 话题库页分类标签栏（见《话题库与话题详情页设计文档》）。
+三个阶段合计预估 7-9 天开发工作量（含联调测试），不含引导文案撰写和配置数据录入的时间。
+> `mine` 页和 `activation` 页的设计见《我的页设计文档》和《微信虚拟支付对接文档》，不属于本方案范围。
+---
+## 十五、完整用户流程示例
+以下用一个典型用户的时间线展示首页引导卡片的演进过程：
+**Day 0**：用户首次打开小程序。首页显示 Hero + 入门邀请卡片 + 热门话题 + 今日推荐。`trainingState = not_started`。用户点击入门卡片 → 选择"7-9岁" → `startPlan` 创建 `onboarding_7_9` 计划 → 跳转训练计划页。
+**Day 0-7**：用户每天打开小程序。首页显示 Hero + 入门进度卡片（Day 1/7 → Day 7/7）+ 热门话题 + 今日推荐。`trainingState = in_progress`。用户点击进度卡片进入训练计划页，看完当天话题后在详情页自动标记完成（`completeDay`）。
+**Day 8**：7天入门全部完成。`completeDay` 将 `currentPlan` 移入 `completedPlans`，设 `onboardingDone: true`。首页 `getProgress` 返回 `themeWeekPreview`。首页显示 Hero + 入门完成过渡卡片（带主题周预览标签）+ 热门话题 + 今日推荐。`trainingState = onboarding_done`。
+**Day 8-13**：用户选了"写作业不用吼"主题周。首页显示 Hero + 主题周进度卡片（Day 1/6 → Day 6/6）+ 热门话题 + 今日推荐。`trainingState = theme_week_active`。
+**Day 14**：主题周完成。`completeDay` 将 `currentPlan` 移入 `completedPlans`。首页 `getProgress` 返回 `themeWeekStats`（`completedCount: 1`, `availableCount: 2`）。首页显示 Hero + 成长概览卡片（已完成1个主题周，还有2个主题等你探索）+ 热门话题 + 今日推荐。`trainingState = theme_week_done`。
+**Day 14+**：用户可能选下一个主题周（回到 `theme_week_active`），也可能直接看今日推荐或去话题库自由浏览。无论哪种行为，首页的成长概览卡片始终保持在那里，作为"继续体系化学习"的入口。
+**长期**：用户完成了所有主题周后，成长概览卡片显示"已完成 N 个主题周，全部主题已完成！可以到话题库自由浏览更多话题"。`availableCount = 0` 时文案切换。
+---
+## 十六、数据初始化
+### 16.1 `training_plans` 集合初始数据
+需要在云开发控制台的 `training_plans` 集合中录入以下文档。可以手动录入，也可以写一次性脚本批量导入。
+**3 套入门计划（每套 7 天）：**
+| _id | planType | ageGroup | title | days 中的 topicId 列表 |
+|---|---|---|---|---|
+| `onboarding_3_6` | onboarding | 3-6 | 7天沟通入门·幼儿版 | ph_3_6_065, ph_3_6_011, ph_3_6_021, ph_3_6_051, ph_3_6_031, ph_3_6_041, ph_3_6_062 |
+| `onboarding_7_9` | onboarding | 7-9 | 7天沟通入门·学龄版 | ph_7_9_001, ph_7_9_054, ph_7_9_008, ph_7_9_041, ph_7_9_067, ph_7_9_060, ph_7_9_089 |
+| `onboarding_10_12` | onboarding | 10-12 | 7天沟通入门·青春期版 | ph_10_12_001, ph_10_12_051, ph_10_12_021, ph_10_12_061, ph_10_12_011, ph_10_12_044, ph_10_12_015 |
+每天的 `guide` 引导文案和 `label` 学习主题标签的详细内容见 `内容生成规划文档.md` 第二、三章。
+**首批主题周（7-9 岁 3 个，3-6 岁 2 个，10-12 岁 2 个）：**
+| _id | planType | ageGroup | title | isFree | days 中的 topicId 列表 |
+|---|---|---|---|---|---|
+| `tw_7_9_homework` | theme_week | 7-9 | 写作业不用吼 | false | ph_7_9_001, ph_7_9_007, ph_7_9_003, ph_7_9_008, ph_7_9_012, ph_7_9_038, ph_7_9_040 |
+| `tw_7_9_screen` | theme_week | 7-9 | 手机不是洪水猛兽 | false | ph_7_9_036, ph_7_9_041, ph_7_9_037, ph_7_9_039, ph_7_9_047, ph_7_9_046, ph_7_9_044 |
+| `tw_7_9_emotion` | theme_week | 7-9 | 读懂孩子的情绪信号 | false | ph_7_9_051, ph_7_9_054, ph_7_9_055, ph_7_9_057, ph_7_9_052, ph_7_9_060, ph_7_9_058 |
+| `tw_3_6_emotion` | theme_week | 3-6 | 搞定情绪小火山 | false | ph_3_6_021, ph_3_6_022, ph_3_6_023, ph_3_6_024, ph_3_6_025, ph_3_6_026, ph_3_6_027 |
+| `tw_3_6_routine` | theme_week | 3-6 | 吃饭睡觉不拉锯 | false | ph_3_6_011, ph_3_6_001, ph_3_6_012, ph_3_6_002, ph_3_6_013, ph_3_6_014, ph_3_6_015 |
+| `tw_10_12_puberty` | theme_week | 10-12 | 在长大之前先被理解 | false | ph_10_12_051, ph_10_12_052, ph_10_12_056, ph_10_12_055, ph_10_12_053, ph_10_12_064, ph_10_12_057 |
+| `tw_10_12_screen` | theme_week | 10-12 | 手机争夺战休战指南 | false | ph_10_12_021, ph_10_12_022, ph_10_12_024, ph_10_12_029, ph_10_12_034, ph_10_12_036, ph_10_12_037 |
+### 16.2 `topic_relations` 集合初始数据
+首批只需为入门计划和主题周涉及的约 51-63 条话题配置关联数据。每条话题配 2-3 条关联。未配置关联的话题，`getRelatedTopics` 接口走 fallback 逻辑（同 `level1` + 同 `ageGroup` 随机取 2 条），不会出现详情页底部空白。
+关联数据的详细生成方案见 `内容生成规划文档.md` 第四章。
+### 16.3 集合创建顺序
+1. 在云开发控制台创建 `training_plans` 集合 → 录入门门计划配置（3 条）→ 录入主题周配置（7 条）
+2. 在云开发控制台创建 `topic_relations` 集合 → 录入关联配置（首批 51-63 条，阶段三才需要）
+3. `communication_user_profiles` 集合已存在，无需手动创建。`trainingProgress` 字段通过 `trainingService` 云函数的 `startPlan`/`completeDay` 等 action 自动写入
+---

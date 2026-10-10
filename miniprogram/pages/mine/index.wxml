@@ -1,0 +1,99 @@
+<view class="page-shell mine-page">
+  <view class="hero-card profile-card">
+    <view class="profile-card__top {{isMember ? 'profile-card__top--member' : ''}}">
+      <view class="profile-card__avatar {{isMember ? 'profile-card__avatar--member' : ''}}">M</view>
+      <view class="profile-card__main">
+        <view class="profile-card__name">{{isMember ? membershipName : '成长守护者'}}</view>
+        <view class="profile-card__badge">{{isMember ? '👑 沟通话题会员' : '☁ 免费版'}}</view>
+      </view>
+      <button tt:if="{{!isMember}}" class="profile-card__redeem" bindtap="openRedeemDialog">兑换激活码</button>
+    </view>
+
+    <view class="profile-card__bottom {{isMember ? 'profile-card__bottom--member' : ''}}">
+      <view class="profile-card__copy">
+        <view class="profile-card__headline">
+          {{isMember ? '已解锁全部话题话术 + 全部沟通专题' : '解锁全部话题话术+沟通专题+主题周'}}
+        </view>
+        <view class="profile-card__subcopy">
+          {{isMember ? '✓ 终生版' : '¥99 终生会员，一次购买永久使用'}}
+        </view>
+      </view>
+      <button tt:if="{{!isMember}}" class="profile-card__cta" bindtap="openActivation">开通会员</button>
+    </view>
+  </view>
+
+  <view class="soft-card perks-card">
+    <view class="perks-card__head">
+      <view class="perks-card__title">会员专属资源</view>
+    </view>
+    <view class="perks-card__row">
+      <view tt:for="{{perks}}" tt:key="title" class="perk-item">
+        <view class="perk-item__icon perk-item__icon--{{item.tone}}">{{item.icon}}</view>
+        <view class="perk-item__title">{{item.title}}</view>
+        <view class="perk-item__status">{{item.status}}</view>
+      </view>
+    </view>
+  </view>
+
+  <view class="soft-card menu-card">
+    <view class="menu-item" bindtap="openFavorites">
+      <view class="menu-item__icon menu-item__icon--coral">★</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">我的收藏</view>
+        <view class="menu-item__desc">{{favoriteCount}} 个话题</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+    <view class="menu-item" bindtap="openPackages">
+      <view class="menu-item__icon menu-item__icon--blue">包</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">沟通专题</view>
+        <view class="menu-item__desc">{{purchasedPackages.length}} / 13 已解锁</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+    <view class="menu-item" bindtap="openFeedback">
+      <view class="menu-item__icon menu-item__icon--gold">聊</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">意见反馈</view>
+        <view class="menu-item__desc">告诉我们你想补充的场景</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+    <view class="menu-item" bindtap="openAbout">
+      <view class="menu-item__icon menu-item__icon--purple">i</view>
+        <view class="menu-item__text">
+          <view class="menu-item__title">关于我们</view>
+          <view class="menu-item__desc">了解亲子对话能为你做什么</view>
+        </view>
+      <view class="chevron">›</view>
+    </view>
+    <view tt:if="{{showDeveloperImport}}" class="menu-item" bindtap="openDeveloperImport">
+      <view class="menu-item__icon menu-item__icon--purple">数</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">开发者数据导入</view>
+        <view class="menu-item__desc">管理本地数据集</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+  </view>
+
+  <view tt:if="{{showRedeemDialog}}" class="redeem-dialog__mask" bindtap="closeRedeemDialog">
+    <view class="redeem-dialog" catchtap="stopRedeemDialogTap">
+      <view class="redeem-dialog__title">兑换激活码</view>
+      <view class="redeem-dialog__desc">输入激活码后，即可获得会员全部权益。</view>
+      <input
+        class="redeem-dialog__input"
+        value="{{redeemCode}}"
+        maxlength="32"
+        placeholder="请输入激活码"
+        confirm-type="done"
+        bindinput="onRedeemCodeInput"
+      />
+      <view class="redeem-dialog__actions">
+        <button class="redeem-dialog__cancel" bindtap="closeRedeemDialog">取消</button>
+        <button class="redeem-dialog__confirm" loading="{{redeeming}}" disabled="{{redeeming}}" bindtap="redeemCode">确定兑换</button>
+      </view>
+    </view>
+  </view>
+</view>

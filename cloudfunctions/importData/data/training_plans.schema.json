@@ -1,0 +1,46 @@
+{
+  "collection": "training_plans",
+  "label": "训练计划配置",
+  "requiredFields": {
+    "_id": "string",
+    "planType": "string",
+    "ageGroup": "string",
+    "title": "string",
+    "sortOrder": "number",
+    "status": "string",
+    "days": "array"
+  },
+  "optionalFields": {
+    "subtitle": "string",
+    "icon": "string",
+    "themeType": "string",
+    "memberOnly": "boolean",
+    "recommendedCategories": "array",
+    "abilityFocus": "string",
+    "valueHook": "string"
+  },
+  "arrayItemOptional": {
+    "days": [
+      "abilityFocus",
+      "growthSignal",
+      "reflectionExample"
+    ]
+  },
+  "arrayItemRequired": {
+    "days": [
+      "day",
+      "title",
+      "moment",
+      "action",
+      "scriptTemplate",
+      "scriptExample",
+      "fallback",
+      "completionRule",
+      "reflection",
+      "reflectionExample"
+    ]
+  },
+  "uniqueFields": [
+    "_id"
+  ]
+}
