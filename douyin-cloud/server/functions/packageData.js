@@ -1,4 +1,5 @@
 const cloud = require("../wx-compat");
+const { getPricing } = require("../pricing");
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -9,7 +10,6 @@ const CHAPTER_COLLECTION = "communication_chapters";
 const PROFILE_COLLECTION = "communication_user_profiles";
 const ORDER_COLLECTION = "communication_membership_orders";
 const ENTITLEMENT_TTL = 60 * 1000;
-const PACKAGE_PRICE_FEN = 990;
 
 let entitlementCache = new Map();
 
@@ -141,7 +141,7 @@ function getPackageProgress(entitlement, packageId) {
   };
 }
 
-function decoratePackage(pkg, entitlement) {
+function decoratePackage(pkg, entitlement, packagePriceFen) {
   const progress = getPackageProgress(entitlement, pkg._id);
   const chapterCount = Number(pkg.chapterCount) || (pkg.chapters || []).length || 0;
   const freeCount = (pkg.chapters || []).filter((chapter) => chapter.isFree).length;
@@ -152,7 +152,7 @@ function decoratePackage(pkg, entitlement) {
     unlocked,
     readCount: progress.readChapters.length,
     chapterCountText: `${chapterCount}章`,
-    priceText: `¥${(PACKAGE_PRICE_FEN / 100).toFixed(2)}`,
+    priceText: `¥${(packagePriceFen / 100).toFixed(2)}`,
     progressText: unlocked
       ? progress.readChapters.length
         ? `已读 ${progress.readChapters.length}/${chapterCount}`
@@ -219,9 +219,12 @@ async function getChapterById(chapterId) {
 async function handleList(openid, event) {
   const entitlement = await getEntitlement(openid, Boolean(event.skipCache));
   const packages = await getPublishedPackages();
+  const pricing = await getPricing();
   return {
     success: true,
-    packages: packages.map((pkg) => decoratePackage(pkg, entitlement)),
+    packages: packages.map((pkg) =>
+      decoratePackage(pkg, entitlement, pricing.packagePriceFen)
+    ),
   };
 }
 
@@ -236,11 +239,16 @@ async function handleDetail(openid, event) {
     throw new Error("专题包不存在");
   }
   const chapters = await getChapterCatalog(packageId);
+  const pricing = await getPricing();
   return {
     success: true,
-    package: Object.assign({}, decoratePackage(pkg, entitlement), {
-      catalog: buildCatalog(pkg, chapters, entitlement),
-    }),
+    package: Object.assign(
+      {},
+      decoratePackage(pkg, entitlement, pricing.packagePriceFen),
+      {
+        catalog: buildCatalog(pkg, chapters, entitlement),
+      }
+    ),
   };
 }
 
@@ -258,10 +266,11 @@ async function handleChapter(openid, event) {
   if (!pkg) {
     throw new Error("专题包不存在");
   }
+  const pricing = await getPricing();
   const unlocked = canReadPackage(pkg, entitlement) || chapter.isFree;
   return {
     success: true,
-    package: decoratePackage(pkg, entitlement),
+    package: decoratePackage(pkg, entitlement, pricing.packagePriceFen),
     chapter: unlocked
       ? Object.assign({}, chapter, { locked: false })
       : Object.assign({}, chapter, {

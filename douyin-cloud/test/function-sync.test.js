@@ -5,13 +5,12 @@ const test = require("node:test");
 
 const functionNames = [
   "topicData",
-  "packageData",
   "trainingService",
   "userData",
   "topicVisit",
 ];
 
-test("ported business functions only differ at the SDK require line", () => {
+test("unchanged ported business functions only differ at the SDK require line", () => {
   const projectRoot = path.resolve(__dirname, "../..");
   for (const name of functionNames) {
     const source = fs
