@@ -50,14 +50,19 @@ function callFunction(options) {
       if (!cloud || typeof cloud.callContainer !== "function") {
         throw new Error("抖音云服务不可用");
       }
-      return cloud.callContainer({
-        path: `/api/${name}`,
-        init: {
-          method: "POST",
-          header: { "content-type": "application/json" },
-          body: JSON.stringify(data),
-          timeout: 10000,
-        },
+      return new Promise((resolve, reject) => {
+        cloud.callContainer({
+          path: `/api/${name}`,
+          init: {
+            method: "POST",
+            header: { "content-type": "application/json" },
+            body: JSON.stringify(data),
+            timeout: 10000,
+          },
+          success: resolve,
+          fail: (error) =>
+            reject(new Error(`callContainer fail: ${JSON.stringify(error)}`)),
+        });
       }).then((response) => {
         const payload = response && (response.data || response.body || response);
         const result = typeof payload === "string" ? JSON.parse(payload) : payload;
