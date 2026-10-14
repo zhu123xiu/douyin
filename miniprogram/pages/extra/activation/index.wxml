@@ -27,7 +27,7 @@
       <view class="price-option__desc">全部已上线话题、专题包与主题周</view>
     </view>
     <view class="price-option__right">
-      <view class="price-option__price">¥99</view>
+      <view class="price-option__price">¥{{membershipPriceText}}</view>
       <view class="price-option__unit">一次性</view>
     </view>
   </view>

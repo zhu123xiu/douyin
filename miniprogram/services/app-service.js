@@ -597,6 +597,8 @@ function getUserPurchases() {
     return {
       isMember: Boolean(result.isMember),
       membershipName: result.membershipName || "沟通话题会员",
+      membershipPriceFen: result.membershipPriceFen || 9900,
+      packagePriceFen: result.packagePriceFen || 990,
       purchasedPackages,
       purchasedItems: result.purchasedItems || [],
       unlockedTopicCount,

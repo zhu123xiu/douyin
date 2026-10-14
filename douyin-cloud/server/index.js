@@ -2,6 +2,7 @@ const crypto = require("crypto");
 const https = require("https");
 const express = require("express");
 const cloud = require("./wx-compat");
+const { getPricing } = require("./pricing");
 
 const { runWithOpenid } = cloud;
 const db = cloud.database();
@@ -238,7 +239,11 @@ async function pay(request, response) {
         .json({ success: false, message: "专题包 itemId 非法" });
     }
 
-    const amountFen = itemType === "membership" ? 5900 : 990;
+    const pricing = await getPricing();
+    const amountFen =
+      itemType === "membership"
+        ? pricing.membershipPriceFen
+        : pricing.packagePriceFen;
     const outTradeNo = `DY${Date.now()}${Math.floor(
       Math.random() * 1000000
     )
@@ -330,12 +335,13 @@ async function pay(request, response) {
         .status(400)
         .json({ success: false, message: "激活码无效或已兑换" });
     }
+    const pricing = await getPricing();
     await grantEntitlement({
       openid,
       outTradeNo: `ACTIVATION-${code}`,
       item_type: "membership",
       item_id: "",
-      goodsPrice: 5900,
+      goodsPrice: pricing.membershipPriceFen,
     });
     return response.json(
       success({ status: "activated", membershipName: "沟通话题会员" })

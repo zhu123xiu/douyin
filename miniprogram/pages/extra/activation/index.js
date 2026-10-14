@@ -9,6 +9,10 @@ const {
   markEntitlementRefresh,
 } = require("../../../utils/entitlement-refresh");
 
+function formatPriceFen(priceFen) {
+  return (Number(priceFen || 9900) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 Page({
   data: {
     sourceTitle: "",
@@ -18,6 +22,7 @@ Page({
     selectedSku: "membership",
     packageMeta: null,
     isMember: false,
+    membershipPriceText: "99",
     orders: [],
     paying: false,
     perks: [
@@ -66,6 +71,9 @@ Page({
           : null;
       this.setData({
         isMember: purchaseInfo.isMember,
+        membershipPriceText: formatPriceFen(
+          purchaseInfo.membershipPriceFen
+        ),
         orders: purchaseInfo.purchasedItems,
         packageMeta: packageDetail ? packageDetail.package : null,
       });

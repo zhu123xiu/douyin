@@ -15,7 +15,7 @@
           {{isMember ? '已解锁全部话题话术 + 全部沟通专题' : '解锁全部话题话术+沟通专题+主题周'}}
         </view>
         <view class="profile-card__subcopy">
-          {{isMember ? '✓ 终生版' : '¥99 终生会员，一次购买永久使用'}}
+          {{isMember ? '✓ 终生版' : '¥' + membershipPriceText + ' 终生会员，一次购买永久使用'}}
         </view>
       </view>
       <button tt:if="{{!isMember}}" class="profile-card__cta" bindtap="openActivation">开通会员</button>

@@ -6,6 +6,10 @@ const {
 
 const PAGE_REFRESH_INTERVAL = 30 * 1000;
 
+function formatPriceFen(priceFen) {
+  return (Number(priceFen || 9900) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
+}
+
 function buildPerks(isMember) {
   return [
     { icon: "话", tone: "coral", title: "全部话题", status: isMember ? "✓ 已解锁" : "🔒 未解锁" },
@@ -18,6 +22,7 @@ Page({
   data: {
     isMember: false,
     membershipName: "沟通话题会员",
+    membershipPriceText: "99",
     perks: buildPerks(false),
     purchasedPackages: [],
     favoriteCount: 0,
@@ -56,6 +61,9 @@ Page({
       this.setData({
         isMember: purchaseInfo.isMember,
         membershipName: purchaseInfo.membershipName,
+        membershipPriceText: formatPriceFen(
+          purchaseInfo.membershipPriceFen
+        ),
         perks: buildPerks(purchaseInfo.isMember),
         purchasedPackages: purchaseInfo.purchasedPackages,
         favoriteCount: favoriteIds.length,

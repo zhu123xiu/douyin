@@ -1,4 +1,5 @@
 const cloud = require("../wx-compat");
+const { getPricing } = require("../pricing");
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 
@@ -9,11 +10,6 @@ const PACKAGE_COLLECTION = "communication_packages";
 
 const MEMBERSHIP_PRODUCT = {
   name: "沟通话题会员",
-  priceFen: 5900,
-};
-
-const PACKAGE_PRODUCT = {
-  priceFen: 990,
 };
 
 function getRequesterOpenid() {
@@ -40,6 +36,7 @@ async function getValidPackageIds() {
 }
 
 async function getUserPurchases(openid) {
+  const pricing = await getPricing();
   const profile = await getProfile(openid);
   const response = await db
     .collection(ORDER_COLLECTION)
@@ -59,8 +56,8 @@ async function getUserPurchases(openid) {
     success: true,
     isMember,
     membershipName: profile.membershipName || MEMBERSHIP_PRODUCT.name,
-    membershipPriceFen: MEMBERSHIP_PRODUCT.priceFen,
-    packagePriceFen: PACKAGE_PRODUCT.priceFen,
+    membershipPriceFen: pricing.membershipPriceFen,
+    packagePriceFen: pricing.packagePriceFen,
     unlockedPackages,
     unlockedTopicIds: Array.isArray(profile.unlockedTopicIds)
       ? profile.unlockedTopicIds

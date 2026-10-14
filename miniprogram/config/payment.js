@@ -38,7 +38,7 @@ function getPaymentEnv() {
 }
 
 const PAYMENT_PRODUCTS = {
-  membership: { productId: "hot_topics_lifetime", goodsPrice: 5900 },
+  membership: { productId: "hot_topics_lifetime", goodsPrice: 9900 },
   package: {
     emotion: { productId: "topic_01", goodsPrice: 990 },
     homework: { productId: "topic_02", goodsPrice: 990 },
