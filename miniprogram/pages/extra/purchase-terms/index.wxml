@@ -1,0 +1,21 @@
+<view class="page-shell purchase-terms-page">
+  <view class="purchase-terms__hero">
+    <view class="purchase-terms__title">购买须知</view>
+    <view class="purchase-terms__intro">请在购买会员、专题包或兑换激活码前阅读以下规则。</view>
+  </view>
+
+  <view class="soft-card purchase-terms__section">
+    <view class="purchase-terms__heading">虚拟商品说明</view>
+    <view class="purchase-terms__body">会员与专题包均为虚拟内容服务，购买成功后将即时解锁对应权益，并通过本小程序提供在线阅读服务。</view>
+  </view>
+
+  <view class="soft-card purchase-terms__section">
+    <view class="purchase-terms__heading">退款说明</view>
+    <view class="purchase-terms__body">虚拟商品一经售出并解锁，原则上不支持退款。如遇重复扣款、付款后未解锁等特殊情况，请发送邮件至 497017835@qq.com，我们将在核实后协助处理。</view>
+  </view>
+
+  <view class="soft-card purchase-terms__section">
+    <view class="purchase-terms__heading">激活码规则</view>
+    <view class="purchase-terms__body">激活码仅限一次性使用，兑换后立即失效并绑定当前账号，不可转让，也不可重复兑换。</view>
+  </view>
+</view>

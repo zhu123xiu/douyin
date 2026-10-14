@@ -1,0 +1,35 @@
+.purchase-terms__hero {
+  padding: 28rpx 8rpx 12rpx;
+}
+
+.purchase-terms__title {
+  color: #30231e;
+  font-size: 48rpx;
+  font-weight: 800;
+}
+
+.purchase-terms__intro {
+  margin-top: 14rpx;
+  color: #907d74;
+  font-size: 26rpx;
+  line-height: 1.65;
+}
+
+.purchase-terms__section {
+  margin-top: 22rpx;
+  padding: 30rpx;
+}
+
+.purchase-terms__heading {
+  color: #30231e;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.purchase-terms__body {
+  margin-top: 16rpx;
+  color: #6f5e55;
+  font-size: 26rpx;
+  line-height: 1.85;
+  text-align: justify;
+}

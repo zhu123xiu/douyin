@@ -72,4 +72,24 @@
       <view class="order-item__right">{{item.deliveryPending ? '已开通·同步中' : item.status === 'delivered' || item.status === 'paid' ? '已完成' : item.status === 'closed' ? '已关闭' : '确认中'}}</view>
     </view>
   </view>
+
+  <view tt:if="{{showPurchaseConfirm}}" class="purchase-confirm__mask" bindtap="closePurchaseConfirm">
+    <view class="purchase-confirm" catchtap="stopPurchaseConfirmTap">
+      <view class="purchase-confirm__title">确认购买</view>
+      <view class="purchase-confirm__product">
+        {{selectedSku === 'package' && packageMeta ? packageMeta.title : '沟通话题会员'}}
+      </view>
+      <view class="purchase-confirm__price">
+        {{selectedSku === 'package' && packageMeta ? packageMeta.priceText : '¥' + membershipPriceText}}
+      </view>
+      <view class="purchase-confirm__desc">购买后将即时解锁对应的虚拟内容服务。</view>
+      <view class="purchase-confirm__terms">
+        购买前请阅读<text class="purchase-confirm__link" catchtap="openPurchaseTerms">《购买须知》</text>
+      </view>
+      <view class="purchase-confirm__actions">
+        <button class="purchase-confirm__cancel" bindtap="closePurchaseConfirm">暂不购买</button>
+        <button class="purchase-confirm__submit" bindtap="confirmPurchase">同意并支付</button>
+      </view>
+    </view>
+  </view>
 </view>

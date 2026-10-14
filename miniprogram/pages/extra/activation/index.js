@@ -25,6 +25,7 @@ Page({
     membershipPriceText: "99",
     orders: [],
     paying: false,
+    showPurchaseConfirm: false,
     perks: [
       "解锁全部已上线话题内容",
       "解锁全部沟通专题与主题周",
@@ -95,7 +96,29 @@ Page({
       return;
     }
 
-    this.setData({ paying: true });
+    this.setData({ showPurchaseConfirm: true });
+  },
+
+  closePurchaseConfirm() {
+    if (!this.data.paying) {
+      this.setData({ showPurchaseConfirm: false });
+    }
+  },
+
+  stopPurchaseConfirmTap() {},
+
+  openPurchaseTerms() {
+    wx.navigateTo({
+      url: "/pages/extra/purchase-terms/index",
+    });
+  },
+
+  confirmPurchase() {
+    if (this.data.paying) {
+      return;
+    }
+
+    this.setData({ paying: true, showPurchaseConfirm: false });
     const action =
       this.data.selectedSku === "package" && this.data.packageId
         ? purchasePackage(this.data.packageId)

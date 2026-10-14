@@ -36,6 +36,8 @@ function success(data) {
   return { success: true, ...data };
 }
 
+// Douyin ecpay signs sorted parameter values plus the salt. Parameter names
+// are not part of the signed text, and the salt participates in the sort.
 function sign(parameters) {
   const skipped = new Set([
     "app_id",
@@ -43,22 +45,23 @@ function sign(parameters) {
     "sign",
     "other_settle_params",
   ]);
-  const text = Object.keys(parameters)
-    .filter(
-      (key) =>
-        !skipped.has(key) &&
-        parameters[key] !== "" &&
-        parameters[key] !== undefined &&
-        parameters[key] !== null
-    )
-    .sort()
-    .map((key) => `${key}=${parameters[key]}`)
-    .join("&");
+  const values = [];
+  for (const [key, value] of Object.entries(parameters)) {
+    if (skipped.has(key)) continue;
+    const text =
+      value === null || value === undefined ? "" : String(value).trim();
+    if (text === "" || text === "null") continue;
+    values.push(text);
+  }
+  values.push(process.env.DOUYIN_PAY_SALT || "");
+  values.sort();
   return crypto
     .createHash("md5")
-    .update(text + (process.env.DOUYIN_PAY_SALT || ""), "utf8")
+    .update(values.join("&"), "utf8")
     .digest("hex");
 }
+
+app.locals.ecpaySign = sign;
 
 function postJson(path, payload) {
   return new Promise((resolve, reject) => {
@@ -116,7 +119,9 @@ async function createPlatformOrder(order) {
   parameters.sign = sign(parameters);
   const response = await postJson("/create_order", parameters);
   if (response.err_no !== 0) {
-    throw new Error(response.message || "抖音预下单失败");
+    throw new Error(
+      response.err_tips || response.message || "抖音预下单失败"
+    );
   }
   return response.data;
 }

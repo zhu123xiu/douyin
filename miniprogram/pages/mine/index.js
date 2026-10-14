@@ -143,6 +143,12 @@ Page({
     });
   },
 
+  openPurchaseTerms() {
+    wx.navigateTo({
+      url: "/pages/extra/purchase-terms/index",
+    });
+  },
+
   openDeveloperImport() {
     if (!this.data.showDeveloperImport) {
       return;

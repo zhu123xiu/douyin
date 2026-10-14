@@ -166,3 +166,88 @@
   color: #907d74;
   font-size: 22rpx;
 }
+
+.purchase-confirm__mask {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40rpx;
+  background: rgba(42, 29, 24, 0.48);
+}
+
+.purchase-confirm {
+  width: 100%;
+  padding: 38rpx 32rpx 30rpx;
+  border-radius: 28rpx;
+  background: #fffaf7;
+  box-sizing: border-box;
+  text-align: center;
+}
+
+.purchase-confirm__title {
+  color: #30231e;
+  font-size: 36rpx;
+  font-weight: 800;
+}
+
+.purchase-confirm__product {
+  margin-top: 24rpx;
+  color: #5d4e46;
+  font-size: 28rpx;
+  font-weight: 700;
+}
+
+.purchase-confirm__price {
+  margin-top: 12rpx;
+  color: #a87d55;
+  font-size: 48rpx;
+  font-weight: 800;
+}
+
+.purchase-confirm__desc,
+.purchase-confirm__terms {
+  margin-top: 18rpx;
+  color: #907d74;
+  font-size: 24rpx;
+  line-height: 1.6;
+}
+
+.purchase-confirm__terms {
+  margin-top: 12rpx;
+}
+
+.purchase-confirm__link {
+  color: #986fc9;
+  font-weight: 700;
+}
+
+.purchase-confirm__actions {
+  display: flex;
+  gap: 18rpx;
+  margin-top: 28rpx;
+}
+
+.purchase-confirm__actions button {
+  flex: 1;
+  height: 76rpx;
+  margin: 0;
+  border-radius: 18rpx;
+  font-size: 27rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.purchase-confirm__cancel {
+  background: #f3e9e2;
+  color: #907d74;
+}
+
+.purchase-confirm__submit {
+  background: #c4956a;
+  color: #ffffff;
+  font-weight: 700;
+}

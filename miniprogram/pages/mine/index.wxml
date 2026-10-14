@@ -68,6 +68,14 @@
         </view>
       <view class="chevron">›</view>
     </view>
+    <view class="menu-item" bindtap="openPurchaseTerms">
+      <view class="menu-item__icon menu-item__icon--gold">购</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">购买须知</view>
+        <view class="menu-item__desc">了解虚拟商品、退款与激活码规则</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
     <view tt:if="{{showDeveloperImport}}" class="menu-item" bindtap="openDeveloperImport">
       <view class="menu-item__icon menu-item__icon--purple">数</view>
       <view class="menu-item__text">
