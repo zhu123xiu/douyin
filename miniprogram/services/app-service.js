@@ -1,6 +1,7 @@
 const { AGE_GROUP_META, getAgeMeta, getGradientStyle } = require("../utils/theme");
 const { callFunction } = require("../utils/cloud");
 const { canPurchase, getPaymentProduct, requestPay } = require("../config/payment");
+const { markEntitlementRefresh } = require("../utils/entitlement-refresh");
 
 const FAVORITE_IDS_CACHE_KEY = "favorite_topic_ids";
 const LIBRARY_STATS_CACHE_KEY = "library_stats_cache";
@@ -621,7 +622,7 @@ function delay(milliseconds) {
 }
 
 const PENDING_PAYMENT_STORAGE_KEY = "pending_virtual_payment";
-const ENTITLEMENT_MAX_ATTEMPTS = 8;
+const ENTITLEMENT_MAX_ATTEMPTS = 30;
 
 function clearPendingPayment() {}
 function retryPendingPayment() { return Promise.resolve(); }
@@ -644,10 +645,27 @@ function waitForEntitlement(itemType, itemId, attempt, outTradeNo) {
         : "";
       throw new Error(`支付已完成，但权益同步失败${suffix}，请稍后重新进入本页`);
     }
-    return delay(attempt === 0 ? 500 : 1000).then(() =>
+    return delay(attempt === 0 ? 1000 : 2000).then(() =>
       waitForEntitlement(itemType, itemId, attempt + 1, outTradeNo)
     );
   });
+}
+
+function syncOrderStatus(outTradeNo, attempt) {
+  const currentAttempt = attempt || 0;
+  return callFunction({
+    name: "pay",
+    data: { action: "syncOrderStatus", outOrderNo: outTradeNo },
+  })
+    .then((response) => {
+      const result = response.result || {};
+      if (result.status === "paid") return true;
+      if (currentAttempt >= 4) return false;
+      return delay(1000).then(() =>
+        syncOrderStatus(outTradeNo, currentAttempt + 1)
+      );
+    })
+    .catch(() => false);
 }
 
 function createPurchase(itemType, itemId, sourceTitle) {
@@ -663,7 +681,17 @@ function createPurchase(itemType, itemId, sourceTitle) {
     if (!result.success) throw new Error(result.message || "预下单失败");
     if (result.alreadyPurchased) return { success: true, synchronized: true };
     return requestPay(result)
-      .then(() => waitForEntitlement(itemType, itemId, 0, result.outOrderNo))
+      .then(() => syncOrderStatus(result.outTradeNo))
+      .then((synchronized) => {
+        if (synchronized) {
+          markEntitlementRefresh();
+          return { success: true, synchronized: true };
+        }
+        waitForEntitlement(itemType, itemId, 0, result.outTradeNo)
+          .then(() => markEntitlementRefresh())
+          .catch(() => {});
+        return { success: true, synchronized: false };
+      })
       .catch((error) => {
         if (/11084|签名/.test(String(error && error.message))) {
           callFunction({ name: "pay", data: { action: "invalidateSecret" } }).catch(
@@ -672,7 +700,7 @@ function createPurchase(itemType, itemId, sourceTitle) {
         }
         throw error;
       });
-  }).then((synchronized) => ({ success: true, synchronized: synchronized !== false }));
+  });
 }
 function purchaseMembership(sourceTitle) {
   return createPurchase("membership", "", sourceTitle);

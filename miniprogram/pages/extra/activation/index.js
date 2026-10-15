@@ -51,10 +51,6 @@ Page({
     wx.stopPullDownRefresh();
   },
 
-  onUnload() {
-    clearTimeout(this._purchaseRefreshTimer);
-  },
-
   loadPage() {
     const tasks = [getUserPurchases()];
     if (this.data.packageId) {
@@ -128,17 +124,10 @@ Page({
       .then((result) => {
         markEntitlementRefresh();
         wx.showToast({
-          title: result.synchronized ? "开通成功" : "支付完成，正在同步",
-          icon: result.synchronized ? "success" : "none",
+          title: "开通成功",
+          icon: "success",
         });
-        if (result.synchronized) {
-          return this.finishFlow();
-        }
-        // Production delivery is asynchronous. Keep the user on this page
-        // so the order can refresh to completed instead of navigating away
-        // while the purchase still appears pending.
-        this.loadPage();
-        this.schedulePurchaseRefresh(0);
+        return this.finishFlow();
       })
       .catch((error) => {
         wx.showToast({
@@ -149,27 +138,6 @@ Page({
       .finally(() => {
         this.setData({ paying: false });
       });
-  },
-
-  schedulePurchaseRefresh(attempt) {
-    if (attempt >= 8) {
-      return;
-    }
-    clearTimeout(this._purchaseRefreshTimer);
-    this._purchaseRefreshTimer = setTimeout(() => {
-      this.loadPage().then(() => {
-        const completed = this.data.isMember ||
-          (this.data.packageId && this.data.orders.some((item) =>
-            item.id === this.data.packageId &&
-            (item.status === "paid" || item.status === "delivered")
-          ));
-        if (completed) {
-          this.finishFlow();
-          return;
-        }
-        this.schedulePurchaseRefresh(attempt + 1);
-      });
-    }, 1500);
   },
 
   startSourcePlan() {

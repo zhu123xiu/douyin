@@ -48,6 +48,7 @@ function success(data) {
 }
 
 let dySecret = null;
+let clientToken = null;
 
 async function loadDySecret({ force = false } = {}) {
   if (dySecret && !force) return dySecret;
@@ -58,6 +59,71 @@ async function loadDySecret({ force = false } = {}) {
     throw new Error("platform_secrets.dy_trade 缺失，无法签名");
   }
   return dySecret;
+}
+
+function requestClientToken(secret) {
+  return new Promise((resolve, reject) => {
+    const query = new URLSearchParams({
+      client_key: secret.appId || process.env.DOUYIN_APP_ID || "",
+      client_secret: secret.appSecret || "",
+      grant_type: "client_credential",
+    });
+    const request = https.get(
+      `https://open.douyin.com/oauth/client_token/?${query.toString()}`,
+      { headers: { accept: "application/json" } },
+      (response) => {
+        let text = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          text += chunk;
+        });
+        response.on("end", () => {
+          try {
+            const payload = JSON.parse(text || "{}");
+            const data = payload.data || {};
+            if (response.statusCode >= 400 || payload.error_code || !data.access_token) {
+              const error = new Error(
+                payload.description || payload.error_description || "抖音 access-token 获取失败"
+              );
+              error.statusCode = response.statusCode;
+              error.response = payload;
+              reject(error);
+              return;
+            }
+            resolve(data);
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+  });
+}
+
+async function getClientToken({ force = false } = {}) {
+  const now = Date.now();
+  if (
+    clientToken &&
+    !force &&
+    clientToken.accessToken &&
+    now < clientToken.expiresAt - 5 * 60 * 1000
+  ) {
+    return clientToken.accessToken;
+  }
+  try {
+    const secret = await loadDySecret();
+    const result = await requestClientToken(secret);
+    const expiresIn = Number(result.expires_in || 7200);
+    clientToken = {
+      accessToken: result.access_token,
+      expiresAt: now + expiresIn * 1000,
+    };
+    return clientToken.accessToken;
+  } catch (error) {
+    if (!force) return getClientToken({ force: true });
+    throw error;
+  }
 }
 
 function buildDyAuthorization(method, uri, data, secret) {
@@ -87,7 +153,7 @@ const TAG_GROUP = {
   402: "tag_group_7272625659888041996",
 };
 
-function postOpenApi(path, data, secret) {
+function postOpenApi(path, data, secret, accessToken) {
   return new Promise((resolve, reject) => {
     const request = https.request(
       `https://open.douyin.com/api/trade_basic/v1/developer/${path}`,
@@ -96,6 +162,7 @@ function postOpenApi(path, data, secret) {
         headers: {
           "content-type": "application/json",
           "content-length": Buffer.byteLength(data),
+          "access-token": accessToken,
           "Byte-Authorization": buildDyAuthorization(
             "POST",
             `/api/trade_basic/v1/developer/${path}`,
@@ -117,6 +184,7 @@ function postOpenApi(path, data, secret) {
               const error = new Error(
                 payload.err_tips || payload.message || "抖音 OpenAPI 请求失败"
               );
+              error.statusCode = response.statusCode;
               error.response = payload;
               reject(error);
               return;
@@ -137,18 +205,29 @@ function postOpenApi(path, data, secret) {
 async function openApiPost(path, body) {
   const data = JSON.stringify(body || {});
   let secret = await loadDySecret();
+  let accessToken = await getClientToken();
   try {
-    return await postOpenApi(path, data, secret);
+    return await postOpenApi(path, data, secret, accessToken);
   } catch (error) {
     const text = String(error && error.message).toLowerCase();
+    const responseText = JSON.stringify(error && error.response || {}).toLowerCase();
+    const tokenFailure =
+      error && error.statusCode === 403 ||
+      /28001003|access.?token|token invalid|forbidden/.test(`${text} ${responseText}`);
+    if (tokenFailure) {
+      accessToken = await getClientToken({ force: true });
+      return postOpenApi(path, data, secret, accessToken);
+    }
     if (!/(signature|sign|key.?version|11084)/i.test(text)) throw error;
     secret = await loadDySecret({ force: true });
-    return postOpenApi(path, data, secret);
+    accessToken = await getClientToken({ force: true });
+    return postOpenApi(path, data, secret, accessToken);
   }
 }
 
 app.locals.buildDyOrderParams = buildDyOrderParams;
 app.locals.loadDySecret = loadDySecret;
+app.locals.getClientToken = getClientToken;
 app.locals.openApiPost = openApiPost;
 
 async function getProfile(openid) {
@@ -268,6 +347,10 @@ async function pay(request, response) {
     return response
       .status(401)
       .json({ success: false, message: "缺少抖音用户身份" });
+  }
+
+  if (action === "syncOrderStatus") {
+    return syncOrderStatus(request, response);
   }
 
   if (action === "createOrder") {
@@ -425,6 +508,90 @@ async function pay(request, response) {
     .json({ success: false, message: "未知支付操作" });
 }
 
+function isPaidStatus(value) {
+  const status = String(value || "").toUpperCase();
+  return ["STATUS_SUCCESS", "SUCCESS", "PAID", "PAY_SUCCESS"].includes(status);
+}
+
+async function getOrderByOutTradeNo(outTradeNo) {
+  const result = await db
+    .collection(collections.orders)
+    .where({ outTradeNo })
+    .limit(1)
+    .get();
+  return result.data && result.data[0];
+}
+
+async function settlePaidOrder(order, { orderId = "", totalAmount } = {}) {
+  if (!order || order.status === "paid" || order.status === "delivered") {
+    return true;
+  }
+  if (
+    totalAmount !== undefined &&
+    Number(totalAmount) !== Number(order.goodsPrice)
+  ) {
+    return false;
+  }
+  const paymentUpdate = await db
+    .collection(collections.orders)
+    .where({ outTradeNo: order.outTradeNo, status: "pending" })
+    .update({
+      data: {
+        status: "paid",
+        paidAt: db.serverDate(),
+        dyOrderId: orderId || "",
+        updatedAt: db.serverDate(),
+      },
+    });
+  if (!paymentUpdate.stats || paymentUpdate.stats.updated !== 1) return true;
+  await grantEntitlement(order);
+  return true;
+}
+
+async function syncOrderStatus(request, response) {
+  const outOrderNo = String(request.body.outOrderNo || "").trim();
+  if (!outOrderNo) return response.json(success({ status: "pending" }));
+
+  const order = await getOrderByOutTradeNo(outOrderNo);
+  if (!order) return response.json(success({ status: "pending" }));
+  if (order.status === "paid" || order.status === "delivered") {
+    return response.json(success({ status: "paid" }));
+  }
+
+  let queryResult;
+  try {
+    queryResult = await openApiPost("order_query/", {
+      out_order_no: outOrderNo,
+    });
+  } catch (error) {
+    return response.json(success({ status: "pending" }));
+  }
+
+  const queryData = queryResult && queryResult.data
+    ? queryResult.data
+    : queryResult || {};
+  const paymentInfo =
+    queryData.payment_info ||
+    (queryData.order_info && queryData.order_info.payment_info) ||
+    {};
+  const payStatus = paymentInfo.pay_status || queryData.pay_status;
+  if (!isPaidStatus(payStatus)) {
+    const normalized = String(payStatus || "").toUpperCase();
+    return response.json(
+      success({ status: /FAIL|CANCEL|CLOSED|REFUND/.test(normalized) ? "failed" : "pending" })
+    );
+  }
+
+  const settled = await settlePaidOrder(order, {
+    orderId: queryData.order_id || paymentInfo.order_id || "",
+    totalAmount:
+      paymentInfo.total_amount !== undefined
+        ? paymentInfo.total_amount
+        : queryData.total_amount,
+  });
+  return response.json(success({ status: settled ? "paid" : "failed" }));
+}
+
 async function payNotify(request, response) {
   const successResponse = () =>
     response.status(200).json({ err_no: 0, err_tips: "success" });
@@ -474,12 +641,7 @@ async function payNotify(request, response) {
 
   const outOrderNo = message.out_order_no;
   if (!outOrderNo) return failureResponse("ORDER_NOT_FOUND");
-  const orderResult = await db
-    .collection(collections.orders)
-    .where({ outTradeNo: outOrderNo })
-    .limit(1)
-    .get();
-  const order = orderResult.data && orderResult.data[0];
+  const order = await getOrderByOutTradeNo(outOrderNo);
   if (!order) return failureResponse("ORDER_NOT_FOUND");
 
   if (
@@ -488,28 +650,16 @@ async function payNotify(request, response) {
   ) {
     return failureResponse("AMOUNT_MISMATCH");
   }
-  if (order.status === "paid" || order.status === "delivered") {
-    return successResponse();
-  }
-  const paymentUpdate = await db
-    .collection(collections.orders)
-    .where({ outTradeNo: outOrderNo, status: "pending" })
-    .update({
-      data: {
-        status: "paid",
-        paidAt: db.serverDate(),
-        dyOrderId: message.order_id || "",
-        updatedAt: db.serverDate(),
-      },
-    });
-  if (!paymentUpdate.stats || paymentUpdate.stats.updated !== 1) {
-    return successResponse();
-  }
-  await grantEntitlement(order);
+  const settled = await settlePaidOrder(order, {
+    orderId: message.order_id || "",
+    totalAmount: message.total_amount,
+  });
+  if (!settled) return failureResponse("AMOUNT_MISMATCH");
   return successResponse();
 }
 
 app.post("/api/pay", pay);
+app.post("/api/pay/syncOrderStatus", syncOrderStatus);
 app.post("/api/pay/notify", payNotify);
 
 app.post("/api/payService", async (request, response) => {

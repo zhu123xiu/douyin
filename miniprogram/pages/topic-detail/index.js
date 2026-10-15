@@ -5,6 +5,7 @@ const {
   recordVisit,
   toggleFavorite,
 } = require("../../services/app-service");
+const { shouldRefreshEntitlement } = require("../../utils/entitlement-refresh");
 
 Page({
   data: {
@@ -45,19 +46,33 @@ Page({
   },
 
   onShow() {
-    if (this._topicId && this.data.locked) {
-      this.loadTopic();
+    if (
+      this._topicId &&
+      this.data.locked &&
+      shouldRefreshEntitlement()
+    ) {
+      this.startEntitlementRefresh();
     }
 
   },
 
+  onHide() {
+    this.stopEntitlementRefresh();
+  },
+
+  onUnload() {
+    this.stopEntitlementRefresh();
+  },
+
   loadTopic() {
+    if (this._loadingTopic) return Promise.resolve();
+    this._loadingTopic = true;
     this.setData({
       loading: true,
       errorMessage: "",
     });
 
-    getTopicDetail(this._topicId, { fromDaily: this._fromDaily })
+    return getTopicDetail(this._topicId, { fromDaily: this._fromDaily })
       .then((result) => {
         if (!result || !result.topic) {
           this.setData({
@@ -91,7 +106,35 @@ Page({
           loading: false,
           errorMessage: "话题数据读取失败，请稍后再试。",
         });
+      })
+      .finally(() => {
+        this._loadingTopic = false;
       });
+  },
+
+  startEntitlementRefresh() {
+    this.stopEntitlementRefresh();
+    let attempt = 0;
+    const poll = () => {
+      if (attempt >= 30 || !this.data.locked) return;
+      if (this._loadingTopic) {
+        attempt += 1;
+        this._entitlementRefreshTimer = setTimeout(poll, 2000);
+        return;
+      }
+      this.loadTopic().then(() => {
+        if (this.data.locked && attempt < 29) {
+          attempt += 1;
+          this._entitlementRefreshTimer = setTimeout(poll, 2000);
+        }
+      });
+    };
+    poll();
+  },
+
+  stopEntitlementRefresh() {
+    clearTimeout(this._entitlementRefreshTimer);
+    this._entitlementRefreshTimer = null;
   },
 
   loadRelatedTopics(topic) {
