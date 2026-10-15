@@ -4,45 +4,47 @@ const fs = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
 
-test("uses the official ecpay value-only signature algorithm", () => {
-  const previousSalt = process.env.DOUYIN_PAY_SALT;
-  process.env.DOUYIN_PAY_SALT = "pepper";
-  try {
-    const app = require("../server/index");
-    const parameters = {
-      app_id: "ignored-app-id",
-      sign: "ignored-signature",
-      merchant_id: 123,
-      timestamp: 456,
-      total_amount: 2,
-      body: " 会员 ",
-      enabled: false,
-      empty: "",
-      nullText: "null",
-      absent: null,
-    };
-    const expected = crypto
-      .createHash("md5")
-      .update("123&2&456&false&pepper&会员", "utf8")
-      .digest("hex");
-
-    assert.equal(app.locals.ecpaySign(parameters), expected);
-  } finally {
-    if (previousSalt === undefined) {
-      delete process.env.DOUYIN_PAY_SALT;
-    } else {
-      process.env.DOUYIN_PAY_SALT = previousSalt;
+test("builds a trade_basic order signature that can be verified", () => {
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
+    modulusLength: 2048,
+  });
+  const app = require("../server/index");
+  const result = app.locals.buildDyOrderParams(
+    { outOrderNo: "DY-test", totalAmount: 990, skuList: [] },
+    {
+      appId: "tt-test",
+      keyVersion: 1,
+      privateKeyPem: privateKey.export({ type: "pkcs8", format: "pem" }),
     }
-  }
+  );
+  const authorization = result.byteAuthorization;
+  const timestamp = authorization.match(/timestamp=([^,]+)/)[1];
+  const nonce = authorization.match(/nonce_str=([^,]+)/)[1];
+  const signature = authorization.slice(authorization.indexOf("signature=") + 10);
+  const raw = ["POST", "/requestOrder", timestamp, nonce, result.data, ""].join(
+    "\n"
+  );
+
+  assert.equal(
+    crypto
+      .createVerify("RSA-SHA256")
+      .update(raw)
+      .verify(publicKey, signature, "base64"),
+    true
+  );
 });
 
-test("surfaces the ecpay err_tips response when order creation fails", () => {
-  const source = fs.readFileSync(
+test("removes the ecpay and tt.pay payment paths", () => {
+  const serverSource = fs.readFileSync(
     path.resolve(__dirname, "../server/index.js"),
     "utf8"
   );
-  assert.match(
-    source,
-    /response\.err_tips\s*\|\|\s*response\.message\s*\|\|\s*"抖音预下单失败"/
+  const paymentSource = fs.readFileSync(
+    path.resolve(__dirname, "../../miniprogram/config/payment.js"),
+    "utf8"
   );
+  assert.doesNotMatch(serverSource, /ecpay|createPlatformOrder|msg_signature/i);
+  assert.doesNotMatch(paymentSource, /tt\.pay|orderInfo/);
+  assert.match(paymentSource, /tt\.requestOrder/);
+  assert.match(paymentSource, /tt\.getOrderPayment/);
 });

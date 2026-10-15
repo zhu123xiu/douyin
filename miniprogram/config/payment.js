@@ -13,15 +13,28 @@ function canPurchase() {
   return { allowed: !isIos(), reason: isIos() ? "iOS 暂不支持购买，请使用激活码" : "" };
 }
 
-function requestPay(orderInfo) {
-  if (typeof tt === "undefined" || typeof tt.pay !== "function") {
-    return Promise.reject(new Error("当前抖音版本暂不支持担保支付"));
+function requestPay(preorderResult) {
+  if (typeof tt === "undefined" || typeof tt.requestOrder !== "function") {
+    return Promise.reject(new Error("当前抖音版本暂不支持交易系统支付"));
   }
   return new Promise((resolve, reject) => {
-    tt.pay({
-      orderInfo,
-      success: resolve,
-      fail: (error) => reject(new Error((error && error.errMsg) || "支付未完成")),
+    tt.requestOrder({
+      data: preorderResult.data,
+      byteAuthorization: preorderResult.byteAuthorization,
+      success(result) {
+        tt.getOrderPayment({
+          orderId: result.orderId,
+          success: resolve,
+          fail: (error) =>
+            reject(new Error((error && error.errMsg) || "支付未完成")),
+        });
+      },
+      fail: (error) =>
+        reject(
+          new Error(
+            (error && (error.errMsg || error.err_tips)) || "预下单失败"
+          )
+        ),
     });
   });
 }

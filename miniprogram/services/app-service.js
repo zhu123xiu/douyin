@@ -662,7 +662,16 @@ function createPurchase(itemType, itemId, sourceTitle) {
     const result = response.result || {};
     if (!result.success) throw new Error(result.message || "预下单失败");
     if (result.alreadyPurchased) return { success: true, synchronized: true };
-    return requestPay(result.orderInfo).then(() => waitForEntitlement(itemType, itemId, 0, result.outOrderNo));
+    return requestPay(result)
+      .then(() => waitForEntitlement(itemType, itemId, 0, result.outOrderNo))
+      .catch((error) => {
+        if (/11084|签名/.test(String(error && error.message))) {
+          callFunction({ name: "pay", data: { action: "invalidateSecret" } }).catch(
+            () => {}
+          );
+        }
+        throw error;
+      });
   }).then((synchronized) => ({ success: true, synchronized: synchronized !== false }));
 }
 function purchaseMembership(sourceTitle) {

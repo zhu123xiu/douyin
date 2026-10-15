@@ -8,6 +8,17 @@ const { runWithOpenid } = cloud;
 const db = cloud.database();
 const app = express();
 
+// The trade_basic callback signature covers the exact request body bytes.
+// Capture them before the general JSON parser normalizes the payload.
+app.use(
+  "/api/pay/notify",
+  express.json({
+    limit: "1mb",
+    verify: (request, _response, buffer) => {
+      request.rawBody = buffer.toString("utf8");
+    },
+  })
+);
 app.use(express.json({ limit: "1mb" }));
 
 const collections = {
@@ -36,53 +47,81 @@ function success(data) {
   return { success: true, ...data };
 }
 
-// Douyin ecpay signs sorted parameter values plus the salt. Parameter names
-// are not part of the signed text, and the salt participates in the sort.
-function sign(parameters) {
-  const skipped = new Set([
-    "app_id",
-    "thirdparty_id",
-    "sign",
-    "other_settle_params",
-  ]);
-  const values = [];
-  for (const [key, value] of Object.entries(parameters)) {
-    if (skipped.has(key)) continue;
-    const text =
-      value === null || value === undefined ? "" : String(value).trim();
-    if (text === "" || text === "null") continue;
-    values.push(text);
+let dySecret = null;
+
+async function loadDySecret({ force = false } = {}) {
+  if (dySecret && !force) return dySecret;
+  const response = await db.collection("platform_secrets").doc("dy_trade").get();
+  const data = response && response.data;
+  dySecret = Array.isArray(data) ? data[0] : data;
+  if (!dySecret) {
+    throw new Error("platform_secrets.dy_trade 缺失，无法签名");
   }
-  values.push(process.env.DOUYIN_PAY_SALT || "");
-  values.sort();
-  return crypto
-    .createHash("md5")
-    .update(values.join("&"), "utf8")
-    .digest("hex");
+  return dySecret;
 }
 
-app.locals.ecpaySign = sign;
+function buildDyAuthorization(method, uri, data, secret) {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = crypto.randomBytes(8).toString("hex");
+  const raw = `${method}\n${uri}\n${timestamp}\n${nonce}\n${data}\n`;
+  const signature = crypto
+    .createSign("RSA-SHA256")
+    .update(raw, "utf8")
+    .sign(secret.privateKeyPem, "base64");
+  return (
+    `SHA256-RSA2048 appid=${secret.appId},nonce_str=${nonce},` +
+    `timestamp=${timestamp},key_version=${secret.keyVersion},signature=${signature}`
+  );
+}
 
-function postJson(path, payload) {
+function buildDyOrderParams(orderParams, secret) {
+  const data = JSON.stringify(orderParams);
+  return {
+    data,
+    byteAuthorization: buildDyAuthorization("POST", "/requestOrder", data, secret),
+  };
+}
+
+const TAG_GROUP = {
+  401: "tag_group_7272625659888041996",
+  402: "tag_group_7272625659888041996",
+};
+
+function postOpenApi(path, data, secret) {
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify(payload);
     const request = https.request(
-      `https://developer.toutiao.com/api/apps/ecpay/v1${path}`,
+      `https://open.douyin.com/api/trade_basic/v1/developer/${path}`,
       {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          "content-length": Buffer.byteLength(body),
+          "content-length": Buffer.byteLength(data),
+          "Byte-Authorization": buildDyAuthorization(
+            "POST",
+            `/api/trade_basic/v1/developer/${path}`,
+            data,
+            secret
+          ),
         },
       },
       (response) => {
         let text = "";
+        response.setEncoding("utf8");
         response.on("data", (chunk) => {
           text += chunk;
         });
         response.on("end", () => {
           try {
-            resolve(JSON.parse(text));
+            const payload = JSON.parse(text || "{}");
+            if (response.statusCode >= 400 || payload.err_no) {
+              const error = new Error(
+                payload.err_tips || payload.message || "抖音 OpenAPI 请求失败"
+              );
+              error.response = payload;
+              reject(error);
+              return;
+            }
+            resolve(payload);
           } catch (error) {
             reject(error);
           }
@@ -90,41 +129,27 @@ function postJson(path, payload) {
       }
     );
     request.on("error", reject);
-    request.write(body);
+    request.write(data);
     request.end();
   });
 }
 
-async function createPlatformOrder(order) {
-  if (
-    !process.env.DOUYIN_MERCHANT_ID ||
-    !process.env.DOUYIN_PAY_SALT ||
-    !process.env.PAY_NOTIFY_URL
-  ) {
-    return null;
+async function openApiPost(path, body) {
+  const data = JSON.stringify(body || {});
+  let secret = await loadDySecret();
+  try {
+    return await postOpenApi(path, data, secret);
+  } catch (error) {
+    const text = String(error && error.message).toLowerCase();
+    if (!/(signature|sign|key.?version|11084)/i.test(text)) throw error;
+    secret = await loadDySecret({ force: true });
+    return postOpenApi(path, data, secret);
   }
-  const parameters = {
-    app_id: process.env.DOUYIN_APP_ID,
-    merchant_id: process.env.DOUYIN_MERCHANT_ID,
-    out_order_no: order.outTradeNo,
-    uid: order.openid,
-    timestamp: Math.floor(Date.now() / 1000),
-    total_amount: order.amountFen,
-    currency: "CNY",
-    subject: order.subject,
-    body: order.subject,
-    valid_time: 900,
-    notify_url: process.env.PAY_NOTIFY_URL,
-  };
-  parameters.sign = sign(parameters);
-  const response = await postJson("/create_order", parameters);
-  if (response.err_no !== 0) {
-    throw new Error(
-      response.err_tips || response.message || "抖音预下单失败"
-    );
-  }
-  return response.data;
 }
+
+app.locals.buildDyOrderParams = buildDyOrderParams;
+app.locals.loadDySecret = loadDySecret;
+app.locals.openApiPost = openApiPost;
 
 async function getProfile(openid) {
   if (!openid) return {};
@@ -174,6 +199,26 @@ function packageTopicIds(packageDocument) {
   return ids;
 }
 
+function cleanProductTitle(value) {
+  const text = String(value || "沟通话题服务")
+    .replace(/[\\\r\n]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  let result = "";
+  for (const character of text) {
+    const next = result + character;
+    if (Buffer.byteLength(next, "utf8") > 256) break;
+    result = next;
+  }
+  return result || "沟通话题服务";
+}
+
+function productImageUrl(packageDocument) {
+  const icon = packageDocument && packageDocument.icon;
+  if (typeof icon === "string" && /^https:\/\//i.test(icon)) return icon;
+  return "https://dummyimage.com/600x600/efe9ff/333333.png&text=Parent+Communication";
+}
+
 async function grantEntitlement(order) {
   if (order.item_type === "membership") {
     await saveProfile(order.openid, {
@@ -211,13 +256,19 @@ async function grantEntitlement(order) {
 }
 
 async function pay(request, response) {
+  const action = request.body.action || request.body.type;
+
+  if (action === "invalidateSecret") {
+    await loadDySecret({ force: true });
+    return response.json(success({}));
+  }
+
   const openid = requesterOpenid(request);
   if (!openid) {
     return response
       .status(401)
       .json({ success: false, message: "缺少抖音用户身份" });
   }
-  const action = request.body.action || request.body.type;
 
   if (action === "createOrder") {
     const itemType =
@@ -271,9 +322,9 @@ async function pay(request, response) {
       goodsPrice: amountFen,
       sourceKey: request.body.sourceKey || "",
       sourceTitle: request.body.sourceTitle || "",
-      paymentMode: "ecpay",
+      paymentMode: "trade_basic",
       platform: "douyin",
-      channel: "ecpay",
+      channel: "trade_basic",
       status: "pending",
       createdAt: db.serverDate(),
       updatedAt: db.serverDate(),
@@ -282,21 +333,37 @@ async function pay(request, response) {
       .collection(collections.orders)
       .doc(outTradeNo)
       .set({ data: order });
-    const platformOrder = await createPlatformOrder({
-      outTradeNo,
-      openid,
-      amountFen,
-      subject: productName,
+    const secret = await loadDySecret();
+    const goodsType = itemType === "membership" ? 402 : 401;
+    const skuParams = {
+      skuList: [
+        {
+          skuId: request.body.productId || itemId || "hot_topics_lifetime",
+          price: amountFen,
+          quantity: 1,
+          title: cleanProductTitle(productName),
+          imageList: [productImageUrl(packageDocument)],
+          type: goodsType,
+          tagGroupId: TAG_GROUP[goodsType],
+        },
+      ],
+      outOrderNo,
+      totalAmount: amountFen,
+      payExpireSeconds: 300,
+      orderEntrySchema: { path: "pages/order-detail/index", params: "" },
+      payNotifyUrl: process.env.PAY_NOTIFY_URL || "",
+      limitPayWayList: [],
+    };
+    const preorder = buildDyOrderParams(skuParams, {
+      appId: secret.appId || process.env.DOUYIN_APP_ID,
+      privateKeyPem: secret.privateKeyPem,
+      keyVersion: secret.keyVersion,
     });
     return response.json(
       success({
         outTradeNo,
-        orderInfo: platformOrder
-          ? {
-              order_id: platformOrder.order_id,
-              order_token: platformOrder.order_token,
-            }
-          : { order_id: outTradeNo, order_token: outTradeNo },
+        data: preorder.data,
+        byteAuthorization: preorder.byteAuthorization,
       })
     );
   }
@@ -359,41 +426,87 @@ async function pay(request, response) {
 }
 
 async function payNotify(request, response) {
-  const message =
-    typeof request.body.msg === "string"
-      ? JSON.parse(request.body.msg)
-      : request.body.msg || request.body;
-  if (sign(message) !== message.sign) {
-    return response.json({ code: 1, msg: "SIGN_ERROR" });
+  const successResponse = () =>
+    response.status(200).json({ err_no: 0, err_tips: "success" });
+  const failureResponse = (message) =>
+    response.status(200).json({ err_no: 1, err_tips: message });
+
+  const timestamp = request.get("Byte-Timestamp") || "";
+  const nonce = request.get("Byte-Nonce-Str") || "";
+  const signature = request.get("Byte-Signature") || "";
+  const rawBody = request.rawBody || JSON.stringify(request.body || {});
+  if (!timestamp || !nonce || !signature) {
+    return failureResponse("SIGNATURE_MISSING");
   }
-  if (message.type !== "payment" || message.status !== "SUCCESS") {
-    return response.json({ code: 0, msg: "SUCCESS" });
+
+  const verifyWithSecret = (secret) => {
+    if (!secret || !secret.platformPublicKeyPem) return false;
+    const raw = `${timestamp}\n${nonce}\n${rawBody}\n`;
+    return crypto
+      .createVerify("RSA-SHA256")
+      .update(raw, "utf8")
+      .verify(secret.platformPublicKeyPem, signature, "base64");
+  };
+
+  let secret = await loadDySecret();
+  let verified = verifyWithSecret(secret);
+  if (!verified) {
+    secret = await loadDySecret({ force: true });
+    verified = verifyWithSecret(secret);
   }
+  if (!verified) return failureResponse("SIGN_ERROR");
+
+  let message;
+  try {
+    message =
+      typeof request.body.msg === "string"
+        ? JSON.parse(request.body.msg)
+        : request.body.msg || request.body;
+  } catch (error) {
+    return failureResponse("INVALID_MESSAGE");
+  }
+
+  // Payment, refund and settlement messages share this signed endpoint.
+  // Refund/settlement handling is intentionally idempotent and acknowledged
+  // here; payment messages continue through the entitlement path below.
+  if (request.body.type !== "payment") return successResponse();
+  if (message.status !== "SUCCESS") return successResponse();
+
+  const outOrderNo = message.out_order_no;
+  if (!outOrderNo) return failureResponse("ORDER_NOT_FOUND");
   const orderResult = await db
     .collection(collections.orders)
-    .where({ outTradeNo: message.cp_ordno })
+    .where({ outTradeNo: outOrderNo })
     .limit(1)
     .get();
   const order = orderResult.data && orderResult.data[0];
-  if (!order) {
-    return response.json({ code: 1, msg: "ORDER_NOT_FOUND" });
+  if (!order) return failureResponse("ORDER_NOT_FOUND");
+
+  if (
+    message.total_amount !== undefined &&
+    Number(message.total_amount) !== Number(order.goodsPrice)
+  ) {
+    return failureResponse("AMOUNT_MISMATCH");
   }
   if (order.status === "paid" || order.status === "delivered") {
-    return response.json({ code: 0, msg: "SUCCESS" });
+    return successResponse();
   }
-  await db
+  const paymentUpdate = await db
     .collection(collections.orders)
-    .where({ outTradeNo: message.cp_ordno })
+    .where({ outTradeNo: outOrderNo, status: "pending" })
     .update({
       data: {
         status: "paid",
         paidAt: db.serverDate(),
-        dyOrderId: message.order_id,
+        dyOrderId: message.order_id || "",
         updatedAt: db.serverDate(),
       },
     });
+  if (!paymentUpdate.stats || paymentUpdate.stats.updated !== 1) {
+    return successResponse();
+  }
   await grantEntitlement(order);
-  return response.json({ code: 0, msg: "SUCCESS" });
+  return successResponse();
 }
 
 app.post("/api/pay", pay);
