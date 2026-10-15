@@ -217,9 +217,11 @@ async function handleLevel1List(event) {
     }
   }
 
+  if (cachedCategories.length) {
+    return { success: true, categories: cachedCategories };
+  }
   const liveCategories = await listDistinctCategories(event.ageGroup, event.contentType);
-  const categories = liveCategories.length ? liveCategories : cachedCategories;
-  return { success: true, categories };
+  return { success: true, categories: liveCategories };
 }
 
 async function handleDailyPracticeCategories(event) {
@@ -293,6 +295,24 @@ async function getTopicPage(query, skip, limit) {
   const response = await db
     .collection(TOPIC_COLLECTION)
     .where(query)
+    .field({
+      _id: true,
+      sortOrder: true,
+      contentType: true,
+      ageGroup: true,
+      level1: true,
+      level2: true,
+      moment: true,
+      abilityFocus: true,
+      displayTitle: true,
+      title: true,
+      scenario: true,
+      sceneDescription: true,
+      scenarioDesc: true,
+      isFree: true,
+      packageId: true,
+      status: true,
+    })
     .orderBy("sortOrder", "asc")
     .skip(skip)
     .limit(limit)

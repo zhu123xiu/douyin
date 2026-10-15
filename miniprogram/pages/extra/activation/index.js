@@ -115,6 +115,7 @@ Page({
     }
 
     this.setData({ paying: true, showPurchaseConfirm: false });
+    wx.showLoading({ title: "正在拉起收银台…", mask: true });
     const action =
       this.data.selectedSku === "package" && this.data.packageId
         ? purchasePackage(this.data.packageId)
@@ -123,6 +124,7 @@ Page({
     action
       .then((result) => {
         markEntitlementRefresh();
+        wx.hideLoading();
         wx.showToast({
           title: "开通成功",
           icon: "success",
@@ -130,12 +132,14 @@ Page({
         return this.finishFlow();
       })
       .catch((error) => {
+        wx.hideLoading();
         wx.showToast({
           title: error.message || "支付未完成",
           icon: "none",
         });
       })
       .finally(() => {
+        wx.hideLoading();
         this.setData({ paying: false });
       });
   },

@@ -5,6 +5,7 @@ const {
   getRecommendedThemeWeek,
   getTopicLibraryStats,
   listPackages,
+  prefetchLibraryData,
   startThemeWeek,
 } = require("../../services/app-service");
 const { AGE_GROUP_META } = require("../../utils/theme");
@@ -84,6 +85,7 @@ Page({
     practiceLoading: true,
     themeWeekLoading: true,
     packagesLoading: true,
+    errorMessage: "",
     ageOptions: AGE_GROUP_META,
     selectedAgeGroup: "",
     showAgeSheet: false,
@@ -121,11 +123,30 @@ Page({
     this.loadHome({ silent: Boolean(cached) });
   },
 
+  onReady() {
+    clearTimeout(this._libraryPrefetchTimer);
+    this._libraryPrefetchTimer = setTimeout(() => {
+      prefetchLibraryData("7-9", "proactive");
+    }, 3000);
+  },
+
+  onUnload() {
+    clearTimeout(this._libraryPrefetchTimer);
+  },
+
   onPullDownRefresh() {
     try {
       wx.removeStorageSync(HOME_CACHE_KEY);
     } catch (error) {}
     this.loadHome({ force: true }).finally(() => wx.stopPullDownRefresh());
+  },
+
+  retryHome() {
+    try {
+      wx.removeStorageSync(HOME_CACHE_KEY);
+    } catch (error) {}
+    this.setData({ errorMessage: "" });
+    this.loadHome({ force: true });
   },
 
   loadHome(options) {
@@ -145,13 +166,22 @@ Page({
     const complete = () => {
       pending -= 1;
       if (pending === 0) {
-        apply({ loading: false });
+        const hasContent = Boolean(
+          this.data.dailyPractice ||
+          (this.data.packages && this.data.packages.length) ||
+          this.data.themeWeek
+        );
+        apply({
+          loading: false,
+          errorMessage: hasContent ? "" : "内容加载失败，请检查网络后重试",
+        });
       }
     };
 
     if (!options || !options.silent) {
       this.setData({
         loading: true,
+        errorMessage: "",
         statsLoading: true,
         practiceLoading: true,
         themeWeekLoading: true,
@@ -159,6 +189,7 @@ Page({
       });
     } else {
       this.setData({
+        errorMessage: "",
         statsLoading: true,
         practiceLoading: true,
         themeWeekLoading: true,

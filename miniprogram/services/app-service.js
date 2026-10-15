@@ -6,6 +6,8 @@ const { markEntitlementRefresh } = require("../utils/entitlement-refresh");
 const FAVORITE_IDS_CACHE_KEY = "favorite_topic_ids";
 const LIBRARY_STATS_CACHE_KEY = "library_stats_cache";
 const PACKAGES_CACHE_KEY = "packages_cache";
+const LIBRARY_LIST_CACHE_KEY = "library_list_cache";
+const LIBRARY_LIST_CACHE_TTL = 5 * 60 * 1000;
 
 const PACKAGE_VISUALS = {
   emotion: {
@@ -161,6 +163,64 @@ function cacheValue(key, value) {
   } catch (error) {}
 }
 
+function libraryListCacheKey(params) {
+  const options = params || {};
+  return [
+    options.ageGroup || "",
+    options.contentType || "",
+    options.level1 || "",
+    options.keyword || "",
+  ].join("|");
+}
+
+function getLibraryListCache(params) {
+  const key = libraryListCacheKey(params);
+  try {
+    const cache = wx.getStorageSync(LIBRARY_LIST_CACHE_KEY) || {};
+    const entry = cache[key];
+    if (
+      !entry ||
+      !Array.isArray(entry.topics) ||
+      !Number.isFinite(Number(entry.at)) ||
+      Date.now() - Number(entry.at) > LIBRARY_LIST_CACHE_TTL
+    ) {
+      return null;
+    }
+    return Object.assign({ key }, entry);
+  } catch (error) {
+    return null;
+  }
+}
+
+function cacheLibraryList(params, result) {
+  const key = libraryListCacheKey(params);
+  try {
+    const cache = wx.getStorageSync(LIBRARY_LIST_CACHE_KEY) || {};
+    cache[key] = {
+      key,
+      topics: (result.topics || []).slice(),
+      total: result.total || 0,
+      hasMore: Boolean(result.hasMore),
+      at: Date.now(),
+    };
+    wx.setStorageSync(LIBRARY_LIST_CACHE_KEY, cache);
+  } catch (error) {}
+}
+
+function updateLibraryListFavorite(topicId, favorited) {
+  try {
+    const cache = wx.getStorageSync(LIBRARY_LIST_CACHE_KEY) || {};
+    Object.keys(cache).forEach((key) => {
+      const entry = cache[key];
+      if (!entry || !Array.isArray(entry.topics)) return;
+      entry.topics = entry.topics.map((topic) =>
+        topic._id === topicId ? Object.assign({}, topic, { favorited }) : topic
+      );
+    });
+    wx.setStorageSync(LIBRARY_LIST_CACHE_KEY, cache);
+  } catch (error) {}
+}
+
 function getCounts() {
   return callTopicData("counts").then((result) =>
     AGE_GROUP_META.map((item) =>
@@ -186,9 +246,7 @@ function getTopicLibraryStats() {
 function getLevel1Categories(ageGroup, contentType) {
   const fallback = () =>
     // Keep the filter row usable when the materialized category stats are
-    // temporarily unavailable. The topic list contains the same level1
-    // values, so it is a safe source for a fallback. Read every page so a
-    // category that appears later in sort order is not missed.
+    // temporarily unavailable. The topic list is only a fallback source.
     (() => {
       const categories = [];
       const loadPage = (skip, pageCount) =>
@@ -197,7 +255,7 @@ function getLevel1Categories(ageGroup, contentType) {
             const category = topic.level1;
             if (category && categories.indexOf(category) < 0) categories.push(category);
           });
-          if (result.hasMore && pageCount < 20) {
+          if (result.hasMore && pageCount < 2) {
             return loadPage(skip + 50, pageCount + 1);
           }
           return categories;
@@ -210,11 +268,8 @@ function getLevel1Categories(ageGroup, contentType) {
     contentType ? { contentType } : {}
   )).then((result) => {
     const categories = result.categories || [];
-    // Prefer the live topic values so stale cached stats cannot add categories
-    // that do not exist for the current age/content-type filter anymore.
-    return fallback().then((topicCategories) => {
-      return topicCategories.length ? topicCategories : categories;
-    }).catch(() => categories);
+    if (categories.length) return categories;
+    return fallback();
   }).catch(fallback);
 }
 
@@ -250,6 +305,34 @@ function listTopics(params) {
     total: result.total || 0,
     hasMore: Boolean(result.hasMore),
   }));
+}
+
+function prefetchLibraryData(ageGroup, contentType) {
+  const options = { ageGroup: ageGroup || "7-9", contentType: contentType || "proactive" };
+  return Promise.all([
+    getLevel1Categories(options.ageGroup, options.contentType),
+    listTopics({
+      ageGroup: options.ageGroup,
+      contentType: options.contentType,
+      level1: "",
+      keyword: "",
+      skip: 0,
+      limit: 20,
+    }),
+  ])
+    .then((result) => {
+      cacheLibraryList(
+        {
+          ageGroup: options.ageGroup,
+          contentType: options.contentType,
+          level1: "",
+          keyword: "",
+        },
+        result[1]
+      );
+      return true;
+    })
+    .catch(() => false);
 }
 
 function getTopicDetail(topicId, options) {
@@ -290,6 +373,8 @@ function toggleFavorite(topicId) {
     const favoriteIds = getCachedFavoriteIds().filter((id) => id !== topicId);
     if (favorited) favoriteIds.push(topicId);
     cacheFavoriteIds(favoriteIds);
+    updateLibraryListFavorite(topicId, favorited);
+    markEntitlementRefresh();
     return { favorited };
   });
 }
@@ -707,12 +792,7 @@ function purchaseMembership(sourceTitle) {
 }
 
 function purchasePackage(packageId) {
-  return getPackageDetail(packageId).then((result) => {
-    if (!result.package) {
-      throw new Error("专题包不存在");
-    }
-    return createPurchase("package", packageId, result.package.title);
-  });
+  return createPurchase("package", packageId, "");
 }
 
 function redeemActivationCode(code) {
@@ -725,6 +805,7 @@ module.exports = {
   completeDay,
   completeThemeTask,
   getCounts,
+  getLibraryListCache,
   getDailyPractice,
   getDailyPracticeOptions,
   getDailyPracticeCategories,
@@ -746,8 +827,10 @@ module.exports = {
   listPackages,
   listThemeWeeks,
   listTopics,
+  cacheLibraryList,
   purchaseMembership,
   purchasePackage,
+  prefetchLibraryData,
   redeemActivationCode,
   recordVisit,
   setDailyPracticePreference,

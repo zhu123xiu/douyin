@@ -2,6 +2,8 @@ const {
   getCounts,
   getLevel1Categories,
   listTopics,
+  getLibraryListCache,
+  cacheLibraryList,
   toggleFavorite,
   getFavoriteIds,
 } = require("../../services/app-service");
@@ -91,19 +93,35 @@ Page({
 
   loadTopics(reset) {
     const requestId = ++this._listRequestId;
-    const skip = reset ? 0 : this.data.topics.length;
-    this.setData({
-      loading: reset && !this.data.topics.length,
-      loadingMore: !reset,
-      errorMessage: "",
-    });
-    return listTopics({
+    const params = {
       ageGroup: this.data.selectedAgeGroup,
       keyword: this.data.keyword,
       level1: this.data.selectedLevel1,
       contentType: this.data.contentMode,
-      skip,
+      skip: reset ? 0 : this.data.topics.length,
       limit: 20,
+    };
+    const cached = reset ? getLibraryListCache(params) : null;
+    const skip = reset ? 0 : this.data.topics.length;
+    this.setData({
+      ...(cached
+        ? {
+            topics: cached.topics,
+            total: cached.total,
+            hasMore: cached.hasMore,
+          }
+        : {}),
+      loading: reset && !cached && !this.data.topics.length,
+      loadingMore: !reset,
+      errorMessage: "",
+    });
+    return listTopics({
+      ageGroup: params.ageGroup,
+      keyword: params.keyword,
+      level1: params.level1,
+      contentType: params.contentType,
+      skip,
+      limit: params.limit,
     })
       .then((result) => {
         if (requestId !== this._listRequestId) {
@@ -118,13 +136,15 @@ Page({
         });
         if (reset) {
           this._lastLoadedAt = Date.now();
+          cacheLibraryList(params, result);
         }
       })
       .catch(() => {
+        if (requestId !== this._listRequestId) return;
         this.setData({
           loading: false,
           loadingMore: false,
-          errorMessage: "话题数据读取失败，请稍后再试。",
+          errorMessage: cached ? "" : "话题数据读取失败，请稍后再试。",
         });
       });
   },

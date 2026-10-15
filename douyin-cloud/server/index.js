@@ -36,6 +36,7 @@ const PORTED_SERVICES = [
   "topicVisit",
 ];
 const PAY_READ_ACTIONS = new Set(["getUserPurchases", "checkMembership"]);
+const clientLogRate = new Map();
 
 function requesterOpenid(request) {
   return String(
@@ -357,7 +358,11 @@ async function pay(request, response) {
     const itemType =
       request.body.itemType === "membership" ? "membership" : "package";
     const itemId = itemType === "membership" ? "" : request.body.itemId;
-    const profile = await getProfile(openid);
+    const [profile, packageDocument, pricing] = await Promise.all([
+      getProfile(openid),
+      itemType === "package" ? getPackage(itemId) : Promise.resolve(null),
+      getPricing(),
+    ]);
     const alreadyPurchased =
       itemType === "membership"
         ? Boolean(profile.membershipActive || profile.activated)
@@ -370,15 +375,12 @@ async function pay(request, response) {
       return response.json(success({ alreadyPurchased: true }));
     }
 
-    const packageDocument =
-      itemType === "package" ? await getPackage(itemId) : null;
     if (itemType === "package" && !packageDocument) {
       return response
         .status(400)
         .json({ success: false, message: "专题包 itemId 非法" });
     }
 
-    const pricing = await getPricing();
     const amountFen =
       itemType === "membership"
         ? pricing.membershipPriceFen
@@ -661,6 +663,30 @@ async function payNotify(request, response) {
 app.post("/api/pay", pay);
 app.post("/api/pay/syncOrderStatus", syncOrderStatus);
 app.post("/api/pay/notify", payNotify);
+
+app.post("/api/clientLog", (request, response) => {
+  const identity = String(
+    request.get("x-tt-openid") || request.ip || "anonymous"
+  );
+  const now = Date.now();
+  const previous = clientLogRate.get(identity);
+  if (!previous || now - previous.startedAt >= 60 * 1000) {
+    clientLogRate.set(identity, { startedAt: now, count: 1 });
+  } else if (previous.count >= 10) {
+    return response.status(429).json({ success: false, message: "日志上报频率过高" });
+  } else {
+    previous.count += 1;
+  }
+  const body = request.body || {};
+  console.error("[clientLog]", {
+    appId: String(body.appId || "").slice(0, 64),
+    tag: String(body.tag || "unknown").slice(0, 128),
+    detail: String(body.detail || "").slice(0, 2048),
+    page: String(body.page || "").slice(0, 256),
+    appVersion: String(body.appVersion || "").slice(0, 128),
+  });
+  return response.json({ success: true });
+});
 
 app.post("/api/payService", async (request, response) => {
   const action = request.body.action || request.body.type;

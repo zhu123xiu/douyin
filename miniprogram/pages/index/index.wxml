@@ -9,6 +9,11 @@
     <view tt:elif="{{statsLoading}}" class="hero-meta-skeleton"></view>
   </view>
 
+  <view tt:if="{{errorMessage && !dailyPractice}}" class="soft-card error-card">
+    <view class="error-card__message">{{errorMessage}}</view>
+    <button class="primary-btn" bindtap="retryHome">重新加载</button>
+  </view>
+
   <view tt:if="{{practiceLoading && !dailyPractice}}" class="soft-card loading-card">
     <view class="sk-line"></view>
     <view class="sk-line loading-card__line"></view>

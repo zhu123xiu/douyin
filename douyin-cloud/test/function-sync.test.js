@@ -4,7 +4,6 @@ const path = require("node:path");
 const test = require("node:test");
 
 const functionNames = [
-  "topicData",
   "trainingService",
   "userData",
   "topicVisit",

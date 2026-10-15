@@ -3,6 +3,7 @@ const {
   getUserPurchases,
   redeemActivationCode,
 } = require("../../services/app-service");
+const { shouldRefreshEntitlement } = require("../../utils/entitlement-refresh");
 
 const PAGE_REFRESH_INTERVAL = 30 * 1000;
 
@@ -10,10 +11,10 @@ function formatPriceFen(priceFen) {
   return (Number(priceFen || 9900) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
 }
 
-function buildPerks(isMember) {
+function buildPerks(isMember, hasPackage) {
   return [
     { icon: "话", tone: "coral", title: "全部话题", status: isMember ? "✓ 已解锁" : "🔒 未解锁" },
-    { icon: "包", tone: "blue", title: "沟通专题", status: isMember ? "✓ 已解锁" : "🔒 未解锁" },
+    { icon: "包", tone: "blue", title: "沟通专题", status: isMember ? "✓ 已解锁" : (hasPackage ? "✓ 已购专题" : "🔒 未解锁") },
     { icon: "周", tone: "purple", title: "主题周", status: isMember ? "✓ 已解锁" : "🔒 未解锁" },
   ];
 }
@@ -23,7 +24,7 @@ Page({
     isMember: false,
     membershipName: "沟通话题会员",
     membershipPriceText: "99",
-    perks: buildPerks(false),
+    perks: buildPerks(false, false),
     purchasedPackages: [],
     favoriteCount: 0,
     showDeveloperImport: false,
@@ -33,6 +34,10 @@ Page({
   },
 
   onShow() {
+    if (shouldRefreshEntitlement()) {
+      this.loadPage();
+      return;
+    }
     if (
       this._lastLoadedAt &&
       Date.now() - this._lastLoadedAt < PAGE_REFRESH_INTERVAL
@@ -64,7 +69,10 @@ Page({
         membershipPriceText: formatPriceFen(
           purchaseInfo.membershipPriceFen
         ),
-        perks: buildPerks(purchaseInfo.isMember),
+        perks: buildPerks(
+          purchaseInfo.isMember,
+          (purchaseInfo.purchasedPackages || []).length > 0
+        ),
         purchasedPackages: purchaseInfo.purchasedPackages,
         favoriteCount: favoriteIds.length,
       });
