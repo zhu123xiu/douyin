@@ -347,7 +347,7 @@ async function pay(request, response) {
           tagGroupId: TAG_GROUP[goodsType],
         },
       ],
-      outOrderNo,
+      outOrderNo: outTradeNo,
       totalAmount: amountFen,
       payExpireSeconds: 300,
       orderEntrySchema: { path: "pages/order-detail/index", params: "" },
