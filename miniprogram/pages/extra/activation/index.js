@@ -8,6 +8,7 @@ const {
 const {
   markEntitlementRefresh,
 } = require("../../../utils/entitlement-refresh");
+const { reportError } = require("../../../utils/error-report");
 
 function formatPriceFen(priceFen) {
   return (Number(priceFen || 9900) / 100).toFixed(2).replace(/\.00$/, "").replace(/(\.\d)0$/, "$1");
@@ -123,8 +124,8 @@ Page({
 
     action
       .then((result) => {
-        markEntitlementRefresh();
         wx.hideLoading();
+        markEntitlementRefresh();
         wx.showToast({
           title: "开通成功",
           icon: "success",
@@ -133,13 +134,14 @@ Page({
       })
       .catch((error) => {
         wx.hideLoading();
+        reportError("payFailed", (error && error.message) || "unknown");
         wx.showToast({
-          title: error.message || "支付未完成",
+          title: (error && error.message) || "支付未完成",
           icon: "none",
+          duration: 2500,
         });
       })
       .finally(() => {
-        wx.hideLoading();
         this.setData({ paying: false });
       });
   },
