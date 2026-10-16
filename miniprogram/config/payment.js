@@ -59,12 +59,25 @@ const PAYMENT_PRODUCTS = {
     topic_01: { productId: "topic_01", goodsPrice: 990 },
     topic_02: { productId: "topic_02", goodsPrice: 990 },
     topic_03: { productId: "topic_03", goodsPrice: 990 },
+    anti_spoiling: { productId: "anti_spoiling", goodsPrice: 990 },
+    bridge: { productId: "bridge", goodsPrice: 990 },
+    bullied: { productId: "bullied", goodsPrice: 990 },
+    emocoach: { productId: "emocoach", goodsPrice: 990 },
+    games: { productId: "games", goodsPrice: 990 },
+    kindergarten: { productId: "kindergarten", goodsPrice: 990 },
+    motivation: { productId: "motivation", goodsPrice: 990 },
+    pocketmoney: { productId: "pocketmoney", goodsPrice: 990 },
+    routine: { productId: "routine", goodsPrice: 990 },
+    social: { productId: "social", goodsPrice: 990 },
   },
 };
 
 function getPaymentProduct(itemType, itemId) {
   if (itemType === "membership") return PAYMENT_PRODUCTS.membership;
-  return PAYMENT_PRODUCTS.package[itemId] || null;
+  return (
+    PAYMENT_PRODUCTS.package[itemId] ||
+    (itemId ? { productId: itemId, goodsPrice: 990 } : null)
+  );
 }
 
 module.exports = { canPurchase, getPaymentEnv, getPaymentProduct, requestPay };
