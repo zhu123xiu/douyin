@@ -48,6 +48,15 @@ function success(data) {
   return { success: true, ...data };
 }
 
+function countUpdated(result) {
+  if (!result) return 0;
+  if (typeof result.updated === "number") return result.updated;
+  if (result.stats && typeof result.stats.updated === "number") {
+    return result.stats.updated;
+  }
+  return 0;
+}
+
 let dySecret = null;
 let clientToken = null;
 
@@ -238,7 +247,8 @@ async function getProfile(openid) {
       .collection(collections.profiles)
       .doc(openid)
       .get();
-    return response.data || {};
+    const data = Array.isArray(response.data) ? response.data[0] : response.data;
+    return data || {};
   } catch (error) {
     return {};
   }
@@ -246,8 +256,16 @@ async function getProfile(openid) {
 
 async function saveProfile(openid, patch) {
   const current = await getProfile(openid);
+  if (!current || !current.createdAt) {
+    await db
+      .collection(collections.profiles)
+      .doc(openid)
+      .update({ data: { ...patch, updatedAt: db.serverDate() } })
+      .catch(() => {});
+    return;
+  }
   const profile = Object.assign({}, current, patch, {
-    createdAt: current.createdAt || db.serverDate(),
+    createdAt: current.createdAt,
     updatedAt: db.serverDate(),
   });
   delete profile._id;
@@ -261,7 +279,8 @@ async function getPackage(packageId) {
       .collection(collections.packages)
       .doc(packageId)
       .get();
-    return response.data || null;
+    const data = Array.isArray(response.data) ? response.data[0] : response.data;
+    return data || null;
   } catch (error) {
     return null;
   }
@@ -300,39 +319,59 @@ function productImageUrl(packageDocument) {
 }
 
 async function grantEntitlement(order) {
-  if (order.item_type === "membership") {
+  const grantLog = {
+    outTradeNo: order.outTradeNo,
+    openid: order.openid,
+    item_type: order.item_type,
+    item_id: order.item_id,
+  };
+  try {
+    if (order.item_type === "membership") {
+      await saveProfile(order.openid, {
+        activated: true,
+        membershipActive: true,
+        membershipName: "沟通话题会员",
+        membershipType: "lifetime",
+        membershipProductCode: "hot_topics_lifetime",
+        membershipPriceFen: order.goodsPrice,
+        membershipPurchasedAt: db.serverDate(),
+        lastOrderNo: order.outTradeNo,
+      });
+      console.error("[grant]", JSON.stringify({ ...grantLog, success: true }));
+      return;
+    }
+
+    const profile = await getProfile(order.openid);
+    const unlockedPackages = Array.isArray(profile.unlockedPackages)
+      ? profile.unlockedPackages.slice()
+      : [];
+    if (!unlockedPackages.includes(order.item_id)) {
+      unlockedPackages.push(order.item_id);
+    }
+    const unlockedTopicIds = Array.isArray(profile.unlockedTopicIds)
+      ? profile.unlockedTopicIds.slice()
+      : [];
+    const packageDocument = (await getPackage(order.item_id)) || {};
+    packageTopicIds(packageDocument).forEach((topicId) => {
+      if (!unlockedTopicIds.includes(topicId)) unlockedTopicIds.push(topicId);
+    });
     await saveProfile(order.openid, {
-      activated: true,
-      membershipActive: true,
-      membershipName: "沟通话题会员",
-      membershipType: "lifetime",
-      membershipProductCode: "hot_topics_lifetime",
-      membershipPriceFen: order.goodsPrice,
-      membershipPurchasedAt: db.serverDate(),
+      unlockedPackages,
+      unlockedTopicIds,
       lastOrderNo: order.outTradeNo,
     });
-    return;
+    console.error("[grant]", JSON.stringify({ ...grantLog, success: true }));
+  } catch (error) {
+    console.error(
+      "[grant]",
+      JSON.stringify({
+        ...grantLog,
+        success: false,
+        error: (error && error.message) || "unknown",
+      })
+    );
+    throw error;
   }
-
-  const profile = await getProfile(order.openid);
-  const unlockedPackages = Array.isArray(profile.unlockedPackages)
-    ? profile.unlockedPackages.slice()
-    : [];
-  if (!unlockedPackages.includes(order.item_id)) {
-    unlockedPackages.push(order.item_id);
-  }
-  const unlockedTopicIds = Array.isArray(profile.unlockedTopicIds)
-    ? profile.unlockedTopicIds.slice()
-    : [];
-  const packageDocument = (await getPackage(order.item_id)) || {};
-  packageTopicIds(packageDocument).forEach((topicId) => {
-    if (!unlockedTopicIds.includes(topicId)) unlockedTopicIds.push(topicId);
-  });
-  await saveProfile(order.openid, {
-    unlockedPackages,
-    unlockedTopicIds,
-    lastOrderNo: order.outTradeNo,
-  });
 }
 
 async function pay(request, response) {
@@ -487,7 +526,7 @@ async function pay(request, response) {
           redeemedAt: db.serverDate(),
         },
       });
-    if (!claim.stats || claim.stats.updated !== 1) {
+    if (countUpdated(claim) !== 1) {
       return response
         .status(400)
         .json({ success: false, message: "激活码无效或已兑换" });
@@ -545,7 +584,7 @@ async function settlePaidOrder(order, { orderId = "", totalAmount } = {}) {
         updatedAt: db.serverDate(),
       },
     });
-  if (!paymentUpdate.stats || paymentUpdate.stats.updated !== 1) return true;
+  if (countUpdated(paymentUpdate) !== 1) return true;
   await grantEntitlement(order);
   return true;
 }
