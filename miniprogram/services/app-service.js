@@ -799,6 +799,10 @@ function redeemActivationCode(code) {
   return callPayService("redeemActivationCode", { code });
 }
 
+function getOrders() {
+  return callPayService("getOrders").then((result) => result.orders || []);
+}
+
 module.exports = {
   completeDailyPractice,
   changeDailyPractice,
@@ -832,6 +836,7 @@ module.exports = {
   purchasePackage,
   prefetchLibraryData,
   redeemActivationCode,
+  getOrders,
   recordVisit,
   setDailyPracticePreference,
   setProfileAgeGroup,

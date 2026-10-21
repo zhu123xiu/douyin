@@ -1,4 +1,10 @@
 <view class="page-shell home-page">
+  <button
+    class="im-float-btn"
+    open-type="byteHi"
+    bindbytehi="onByteHiContact"
+  >客</button>
+
   <view class="hero">
     <view class="hero__title">亲子对话</view>
     <view class="hero__subtitle">用心沟通，陪伴成长</view>

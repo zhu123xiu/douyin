@@ -35,7 +35,7 @@ const PORTED_SERVICES = [
   "userData",
   "topicVisit",
 ];
-const PAY_READ_ACTIONS = new Set(["getUserPurchases", "checkMembership"]);
+const PAY_READ_ACTIONS = new Set(["getUserPurchases", "getOrders", "checkMembership"]);
 const clientLogRate = new Map();
 
 function requesterOpenid(request) {
@@ -474,7 +474,7 @@ async function pay(request, response) {
       outOrderNo: outTradeNo,
       totalAmount: amountFen,
       payExpireSeconds: 300,
-      orderEntrySchema: { path: "pages/order-detail/index", params: "" },
+      orderEntrySchema: { path: "pages/extra/orders/index", params: "" },
       payNotifyUrl: process.env.PAY_NOTIFY_URL || "",
       limitPayWayList: [],
     };

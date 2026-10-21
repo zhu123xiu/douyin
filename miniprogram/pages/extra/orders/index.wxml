@@ -1,0 +1,42 @@
+<view class="page-shell orders-page">
+  <view class="orders-intro">
+    <view class="orders-intro__title">我的订单</view>
+    <view class="orders-intro__desc">查看会员与专题包的购买记录。</view>
+  </view>
+
+  <view tt:if="{{loading}}" class="soft-card loading-card orders-loading">
+    <view class="sk-line"></view>
+    <view class="sk-line loading-card__line"></view>
+  </view>
+
+  <view tt:elif="{{errorMessage}}" class="soft-card orders-error">
+    <view class="orders-error__text">{{errorMessage}}</view>
+    <button class="primary-btn orders-error__button" bindtap="loadPage">重新加载</button>
+  </view>
+
+  <view tt:elif="{{!orders.length}}" class="soft-card orders-empty">
+    <view class="orders-empty__icon">单</view>
+    <view class="orders-empty__title">还没有购买记录</view>
+    <view class="orders-empty__desc">购买会员或专题包后，订单会显示在这里。</view>
+  </view>
+
+  <view tt:else class="orders-list">
+    <view tt:for="{{orders}}" tt:key="outTradeNo" class="soft-card order-card">
+      <view class="order-card__top">
+        <view class="order-card__name">{{item.productName}}</view>
+        <view class="order-card__status order-card__status--{{item.statusClass}}">{{item.statusLabel}}</view>
+      </view>
+      <view class="order-card__meta">下单时间：{{item.createdAtText}}</view>
+      <view class="order-card__bottom">
+        <view class="order-card__price">¥{{item.displayPrice}}</view>
+        <button
+          class="order-card__after-sale"
+          open-type="byteHi"
+          bindbytehi="onByteHiContact"
+        >申请售后</button>
+      </view>
+    </view>
+  </view>
+
+  <view class="orders-policy">会员为虚拟商品，支付成功后即时开通，一经开通不支持退款；如有疑问请联系客服协商处理。</view>
+</view>

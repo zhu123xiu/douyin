@@ -1,0 +1,148 @@
+.orders-intro {
+  padding: 18rpx 4rpx 26rpx;
+}
+
+.orders-intro__title {
+  font-size: 42rpx;
+  font-weight: 800;
+}
+
+.orders-intro__desc {
+  margin-top: 10rpx;
+  color: #907d74;
+  font-size: 25rpx;
+}
+
+.orders-loading {
+  margin-top: 8rpx;
+  padding: 44rpx 34rpx;
+}
+
+.orders-error {
+  padding: 34rpx 28rpx;
+  text-align: center;
+}
+
+.orders-error__text {
+  color: #8e7468;
+  font-size: 26rpx;
+}
+
+.orders-error__button {
+  height: 76rpx;
+  margin-top: 22rpx;
+  border-radius: 22rpx;
+  font-size: 27rpx;
+  line-height: 76rpx;
+}
+
+.orders-empty {
+  padding: 54rpx 28rpx;
+  text-align: center;
+}
+
+.orders-empty__icon {
+  width: 76rpx;
+  height: 76rpx;
+  margin: 0 auto;
+  border-radius: 24rpx;
+  background: #eaf1fb;
+  color: #6d8fc8;
+  font-size: 30rpx;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.orders-empty__title {
+  margin-top: 18rpx;
+  font-size: 29rpx;
+  font-weight: 700;
+}
+
+.orders-empty__desc {
+  margin-top: 8rpx;
+  color: #a49389;
+  font-size: 23rpx;
+}
+
+.orders-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16rpx;
+}
+
+.order-card {
+  padding: 26rpx 28rpx;
+}
+
+.order-card__top,
+.order-card__bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16rpx;
+}
+
+.order-card__name {
+  flex: 1;
+  min-width: 0;
+  font-size: 29rpx;
+  font-weight: 700;
+}
+
+.order-card__status {
+  padding: 8rpx 14rpx;
+  border-radius: 18rpx;
+  background: #eaf7ef;
+  color: #3eaa71;
+  font-size: 21rpx;
+  flex-shrink: 0;
+}
+
+.order-card__status--pending,
+.order-card__status--processing {
+  background: #fff3df;
+  color: #ba8841;
+}
+
+.order-card__status--failed,
+.order-card__status--closed {
+  background: #f9e9e5;
+  color: #b36b59;
+}
+
+.order-card__meta {
+  margin-top: 12rpx;
+  color: #a49389;
+  font-size: 22rpx;
+}
+
+.order-card__bottom {
+  margin-top: 24rpx;
+}
+
+.order-card__price {
+  color: #a87d55;
+  font-size: 32rpx;
+  font-weight: 800;
+}
+
+.order-card__after-sale {
+  min-width: 136rpx;
+  height: 58rpx;
+  padding: 0 18rpx;
+  border: 2rpx solid #d4a176;
+  border-radius: 18rpx;
+  color: #b77e52;
+  font-size: 23rpx;
+  line-height: 54rpx;
+}
+
+.orders-policy {
+  margin: 26rpx 8rpx 8rpx;
+  color: #a49389;
+  font-size: 22rpx;
+  line-height: 1.6;
+}

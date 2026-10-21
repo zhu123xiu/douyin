@@ -29,6 +29,7 @@
         "pages": [
           "activation/index",
           "favorites/index",
+          "orders/index",
           "developer-import/index",
           "feedback/index",
           "about/index",

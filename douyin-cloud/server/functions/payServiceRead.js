@@ -86,12 +86,22 @@ async function checkMembership(event) {
   };
 }
 
+async function getOrders(openid) {
+  const purchaseInfo = await getUserPurchases(openid);
+  return {
+    success: true,
+    orders: purchaseInfo.purchasedItems || [],
+  };
+}
+
 exports.main = async (event) => {
   try {
     const action = event.action || event.type;
     switch (action) {
       case "getUserPurchases":
         return await getUserPurchases(getRequesterOpenid());
+      case "getOrders":
+        return await getOrders(getRequesterOpenid());
       case "checkMembership":
         return await checkMembership(event);
       default:

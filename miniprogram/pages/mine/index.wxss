@@ -198,6 +198,30 @@
   padding: 24rpx 28rpx;
 }
 
+/* IM 客服入口：透明按钮覆盖整行 */
+.menu-item--im {
+  position: relative;
+}
+
+.menu-item__im-btn {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  line-height: normal;
+  z-index: 2;
+}
+
+.menu-item__im-btn::after {
+  border: none;
+}
+
 .menu-item__icon {
   width: 68rpx;
   height: 68rpx;

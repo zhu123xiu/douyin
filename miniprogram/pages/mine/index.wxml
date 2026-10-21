@@ -52,6 +52,27 @@
       </view>
       <view class="chevron">›</view>
     </view>
+    <view class="menu-item menu-item--im">
+      <button
+        class="menu-item__im-btn"
+        open-type="byteHi"
+        bindbytehi="onByteHiContact"
+      ></button>
+      <view class="menu-item__icon menu-item__icon--coral">客</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">联系客服</view>
+        <view class="menu-item__desc">咨询与售后问题，点此即时沟通</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
+    <view class="menu-item" bindtap="openOrders">
+      <view class="menu-item__icon menu-item__icon--blue">单</view>
+      <view class="menu-item__text">
+        <view class="menu-item__title">我的订单</view>
+        <view class="menu-item__desc">查看购买记录与订单状态</view>
+      </view>
+      <view class="chevron">›</view>
+    </view>
     <view class="menu-item" bindtap="openFeedback">
       <view class="menu-item__icon menu-item__icon--gold">聊</view>
       <view class="menu-item__text">
