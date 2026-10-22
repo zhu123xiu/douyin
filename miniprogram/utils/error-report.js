@@ -1,5 +1,6 @@
-const CLIENT_LOG_URL =
-  "https://1mgmwf0bio2dl-env-XQ5p2D4Owi.service.douyincloud.run/api/clientLog";
+const cloudConfig = require("../config/cloud");
+
+const CLIENT_LOG_URL = `https://${cloudConfig.douyin.serviceId}-${cloudConfig.douyin.envId}.service.douyincloud.run/api/clientLog`;
 
 function stringifyDetail(detail) {
   try {
