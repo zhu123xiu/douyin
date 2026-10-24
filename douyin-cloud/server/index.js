@@ -256,16 +256,8 @@ async function getProfile(openid) {
 
 async function saveProfile(openid, patch) {
   const current = await getProfile(openid);
-  if (!current || !current.createdAt) {
-    await db
-      .collection(collections.profiles)
-      .doc(openid)
-      .update({ data: { ...patch, updatedAt: db.serverDate() } })
-      .catch(() => {});
-    return;
-  }
   const profile = Object.assign({}, current, patch, {
-    createdAt: current.createdAt,
+    createdAt: (current && current.createdAt) || db.serverDate(),
     updatedAt: db.serverDate(),
   });
   delete profile._id;
